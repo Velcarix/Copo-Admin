@@ -6,10 +6,11 @@ import { Dashboard } from './pages/Dashboard'
 import { Clients } from './pages/Clients'
 import { ClientDetail } from './pages/ClientDetail'
 import { Licenses } from './pages/Licenses'
+import { Accounts } from './pages/Accounts'
 import { Login } from './pages/Login'
 
 export default function App() {
-  const [isAuthed, setIsAuthed] = useState(() => !!sessionStorage.getItem('adminKey'))
+  const [isAuthed, setIsAuthed] = useState(() => !!sessionStorage.getItem('adminToken'))
 
   if (!isAuthed) {
     return <Login onSuccess={() => setIsAuthed(true)} />
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="clients" element={<Clients />} />
             <Route path="clients/:id" element={<ClientDetail />} />
             <Route path="licenses" element={<Licenses />} />
+            <Route path="accounts" element={<Accounts />} />
           </Route>
         </Routes>
       </BrowserRouter>

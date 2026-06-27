@@ -7,8 +7,29 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export interface AdminUser {
+  id: string
+  username: string
+  name: string
+  role: 'SUPER_ADMIN' | 'SOPORTE'
+}
+
+export function getAdminUser(): AdminUser | null {
+  try {
+    const raw = sessionStorage.getItem('adminUser')
+    return raw ? (JSON.parse(raw) as AdminUser) : null
+  } catch {
+    return null
+  }
+}
+
 function getKey() {
-  return sessionStorage.getItem('adminKey') ?? ''
+  return sessionStorage.getItem('adminToken') ?? ''
+}
+
+function clearSession() {
+  sessionStorage.removeItem('adminToken')
+  sessionStorage.removeItem('adminUser')
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -21,7 +42,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (res.status === 401) {
-    sessionStorage.removeItem('adminKey')
+    clearSession()
     throw new UnauthorizedError()
   }
   if (!res.ok) {
@@ -38,7 +59,7 @@ export async function downloadFile(path: string): Promise<Blob> {
     headers: { Authorization: `Bearer ${getKey()}` },
   })
   if (res.status === 401) {
-    sessionStorage.removeItem('adminKey')
+    clearSession()
     throw new UnauthorizedError()
   }
   if (!res.ok) throw new Error(`Error ${res.status}`)

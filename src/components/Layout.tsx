@@ -3,17 +3,39 @@ import {
   LayoutDashboard,
   Users,
   KeyRound,
+  UserCog,
   ChevronRight,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { getAdminUser } from '../lib/api'
 
-const NAV_ITEMS = [
+type NavItem = {
+  to: string
+  label: string
+  icon: React.ElementType
+  end?: boolean
+}
+
+const BASE_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/clients', label: 'Clientes', icon: Users },
   { to: '/licenses', label: 'Licencias', icon: KeyRound },
 ]
 
+const SUPER_ADMIN_NAV: NavItem[] = [
+  { to: '/accounts', label: 'Cuentas', icon: UserCog },
+]
+
 function Sidebar() {
+  const currentUser = getAdminUser()
+  const navItems = currentUser?.role === 'SUPER_ADMIN'
+    ? [...BASE_NAV, ...SUPER_ADMIN_NAV]
+    : BASE_NAV
+
+  const initials = currentUser?.name
+    ? currentUser.name.charAt(0).toUpperCase()
+    : '?'
+
   return (
     <aside className="w-60 bg-slate-950 flex flex-col shrink-0 h-screen sticky top-0">
       {/* Logo */}
@@ -31,7 +53,7 @@ function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -55,11 +77,13 @@ function Sidebar() {
       <div className="px-4 py-4 border-t border-slate-800">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
-            <span className="text-slate-300 text-xs font-medium">R</span>
+            <span className="text-slate-300 text-xs font-medium">{initials}</span>
           </div>
           <div>
-            <p className="text-slate-300 text-xs font-medium">Roberto</p>
-            <p className="text-slate-600 text-xs">Admin</p>
+            <p className="text-slate-300 text-xs font-medium">{currentUser?.name ?? '—'}</p>
+            <p className="text-slate-600 text-xs">
+              {currentUser?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Soporte'}
+            </p>
           </div>
         </div>
       </div>
@@ -74,6 +98,7 @@ function Breadcrumb() {
   const labelMap: Record<string, string> = {
     clients: 'Clientes',
     licenses: 'Licencias',
+    accounts: 'Cuentas',
   }
 
   if (parts.length === 0) return null
