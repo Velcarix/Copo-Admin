@@ -248,10 +248,10 @@ export function ClientDetail() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        {l.status === 'active' && (
+                        {l.status !== 'suspended' && l.status !== 'expired' && (
                           <button
                             onClick={() => handleGenerateFile(l.id, l.branchName)}
-                            title="Generar archivo .copo"
+                            title="Descargar licencia (.copo)"
                             className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                           >
                             <Download size={15} />
