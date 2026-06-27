@@ -26,13 +26,6 @@ export function isExpired(dateStr: string): boolean {
   return new Date(dateStr) < new Date()
 }
 
-export function generateLicenseKey(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  const seg = () =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-  return `COPO-${seg()}-${seg()}-${seg()}`
-}
-
 export function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
 }

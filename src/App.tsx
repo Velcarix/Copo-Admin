@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AppProvider } from './store/AppContext'
 import { Layout } from './components/Layout'
@@ -5,8 +6,15 @@ import { Dashboard } from './pages/Dashboard'
 import { Clients } from './pages/Clients'
 import { ClientDetail } from './pages/ClientDetail'
 import { Licenses } from './pages/Licenses'
+import { Login } from './pages/Login'
 
 export default function App() {
+  const [isAuthed, setIsAuthed] = useState(() => !!sessionStorage.getItem('adminKey'))
+
+  if (!isAuthed) {
+    return <Login onSuccess={() => setIsAuthed(true)} />
+  }
+
   return (
     <AppProvider>
       <BrowserRouter>

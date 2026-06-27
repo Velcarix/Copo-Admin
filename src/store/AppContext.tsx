@@ -1,37 +1,192 @@
-import { createContext, useContext, useState } from 'react'
-import type { Client, License, LicenseStatus } from '../types'
-import { MOCK_CLIENTS, MOCK_LICENSES } from '../data/mock'
+import { createContext, useContext, useState, useEffect } from 'react'
+import type { Client, License, LicenseStatus, Plan } from '../types'
+import { adminApi } from '../lib/api'
+
+// ── Backend response types ────────────────────────────────────────────────────
+
+type BackendPlan = 'BASIC' | 'PRO' | 'ENTERPRISE'
+type BackendStatus = 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'TRIAL'
+
+interface BackendBusiness {
+  id: string
+  name: string
+  ownerName: string | null
+  contactEmail: string | null
+  phone: string | null
+  city: string | null
+  state: string | null
+  notes: string | null
+  createdAt: string
+}
+
+interface BackendBranch {
+  id: string
+  name: string
+  address: string | null
+  businessId: string
+}
+
+interface BackendBranchLicense {
+  id: string
+  branchId: string
+  licenseKey: string
+  plan: BackendPlan
+  status: BackendStatus
+  monthlyAmountCents: number
+  startedAt: string | null
+  expiresAt: string
+  createdAt: string
+  branch: BackendBranch
+}
+
+// ── Conversion maps ───────────────────────────────────────────────────────────
+
+const PLAN_FROM_BACKEND: Record<BackendPlan, Plan> = {
+  BASIC: 'basico',
+  PRO: 'pro',
+  ENTERPRISE: 'enterprise',
+}
+
+const PLAN_TO_BACKEND: Record<Plan, BackendPlan> = {
+  basico: 'BASIC',
+  pro: 'PRO',
+  enterprise: 'ENTERPRISE',
+}
+
+const STATUS_FROM_BACKEND: Record<BackendStatus, LicenseStatus> = {
+  ACTIVE: 'active',
+  SUSPENDED: 'suspended',
+  EXPIRED: 'expired',
+  TRIAL: 'trial',
+}
+
+const STATUS_TO_BACKEND: Record<LicenseStatus, BackendStatus> = {
+  active: 'ACTIVE',
+  suspended: 'SUSPENDED',
+  expired: 'EXPIRED',
+  trial: 'TRIAL',
+}
+
+// ── Mappers ───────────────────────────────────────────────────────────────────
+
+function mapClient(b: BackendBusiness): Client {
+  return {
+    id: b.id,
+    businessName: b.name,
+    ownerName: b.ownerName ?? '',
+    email: b.contactEmail ?? '',
+    phone: b.phone ?? '',
+    city: b.city ?? '',
+    state: b.state ?? '',
+    notes: b.notes ?? undefined,
+    createdAt: b.createdAt,
+  }
+}
+
+function mapLicense(l: BackendBranchLicense): License {
+  return {
+    id: l.id,
+    clientId: l.branch.businessId,
+    licenseKey: l.licenseKey,
+    branchName: l.branch.name,
+    branchAddress: l.branch.address ?? '',
+    plan: PLAN_FROM_BACKEND[l.plan],
+    status: STATUS_FROM_BACKEND[l.status],
+    monthlyAmount: l.monthlyAmountCents / 100,
+    startedAt: l.startedAt ? l.startedAt.split('T')[0] : '',
+    expiresAt: l.expiresAt.split('T')[0],
+    createdAt: l.createdAt,
+  }
+}
+
+// ── Context types ─────────────────────────────────────────────────────────────
+
+export type ClientCreateData = Omit<Client, 'id' | 'createdAt'>
+export type LicenseCreateData = Omit<License, 'id' | 'licenseKey' | 'createdAt'>
 
 interface AppContextValue {
   clients: Client[]
   licenses: License[]
-  addClient: (client: Client) => void
-  addLicense: (license: License) => void
-  updateLicenseStatus: (id: string, status: LicenseStatus) => void
-  deleteLicense: (id: string) => void
+  isLoading: boolean
+  error: string | null
+  addClient: (data: ClientCreateData) => Promise<void>
+  addLicense: (data: LicenseCreateData) => Promise<void>
+  updateLicenseStatus: (id: string, status: LicenseStatus) => Promise<void>
+  deleteLicense: (id: string) => Promise<void>
   getClientLicenses: (clientId: string) => License[]
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
 
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS)
-  const [licenses, setLicenses] = useState<License[]>(MOCK_LICENSES)
+  const [clients, setClients] = useState<Client[]>([])
+  const [licenses, setLicenses] = useState<License[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  function addClient(client: Client) {
-    setClients(prev => [client, ...prev])
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const [clientsRes, licensesRes] = await Promise.all([
+          adminApi.get<{ data: BackendBusiness[] }>('/api/admin/clients'),
+          adminApi.get<{ data: BackendBranchLicense[] }>('/api/admin/licenses'),
+        ])
+        setClients(clientsRes.data.map(mapClient))
+        setLicenses(licensesRes.data.map(mapLicense))
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al cargar datos')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  async function addClient(data: ClientCreateData) {
+    const body = {
+      name: data.businessName,
+      ownerName: data.ownerName || undefined,
+      contactEmail: data.email || undefined,
+      phone: data.phone || undefined,
+      city: data.city || undefined,
+      state: data.state || undefined,
+      notes: data.notes || undefined,
+    }
+    const res = await adminApi.post<{ data: BackendBusiness }>('/api/admin/clients', body)
+    setClients(prev => [mapClient(res.data), ...prev])
   }
 
-  function addLicense(license: License) {
-    setLicenses(prev => [license, ...prev])
+  async function addLicense(data: LicenseCreateData) {
+    const body = {
+      businessId: data.clientId,
+      branchName: data.branchName,
+      branchAddress: data.branchAddress || undefined,
+      plan: PLAN_TO_BACKEND[data.plan],
+      status: STATUS_TO_BACKEND[data.status],
+      monthlyAmountCents: Math.round(data.monthlyAmount * 100),
+      startedAt: data.startedAt ? `${data.startedAt}T00:00:00.000Z` : undefined,
+      expiresAt: `${data.expiresAt}T00:00:00.000Z`,
+    }
+    const res = await adminApi.post<{
+      data: { branch: BackendBranch; license: Omit<BackendBranchLicense, 'branch'> }
+    }>('/api/admin/licenses', body)
+    const merged: BackendBranchLicense = { ...res.data.license, branch: res.data.branch }
+    setLicenses(prev => [mapLicense(merged), ...prev])
   }
 
-  function updateLicenseStatus(id: string, status: LicenseStatus) {
+  async function updateLicenseStatus(id: string, status: LicenseStatus) {
+    await adminApi.put(`/api/admin/licenses/${id}/status`, { status: STATUS_TO_BACKEND[status] })
     setLicenses(prev => prev.map(l => (l.id === id ? { ...l, status } : l)))
   }
 
-  function deleteLicense(id: string) {
-    setLicenses(prev => prev.filter(l => l.id !== id))
+  async function deleteLicense(id: string) {
+    await adminApi.delete(`/api/admin/licenses/${id}`)
+    // Backend soft-deletes: status → EXPIRED
+    setLicenses(prev => prev.map(l => (l.id === id ? { ...l, status: 'expired' as LicenseStatus } : l)))
   }
 
   function getClientLicenses(clientId: string) {
@@ -40,7 +195,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ clients, licenses, addClient, addLicense, updateLicenseStatus, deleteLicense, getClientLicenses }}
+      value={{
+        clients,
+        licenses,
+        isLoading,
+        error,
+        addClient,
+        addLicense,
+        updateLicenseStatus,
+        deleteLicense,
+        getClientLicenses,
+      }}
     >
       {children}
     </AppContext.Provider>

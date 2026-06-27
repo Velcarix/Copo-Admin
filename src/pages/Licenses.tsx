@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ExternalLink } from 'lucide-react'
+import { Search, Plus, ExternalLink, Download } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
 import { Modal, FormField, inputClass } from '../components/Modal'
-import { formatDate, formatCurrency, generateLicenseKey, generateId, isExpiringSoon } from '../lib/utils'
+import { formatDate, formatCurrency, isExpiringSoon } from '../lib/utils'
+import { downloadFile } from '../lib/api'
 import { PLAN_PRICES } from '../data/mock'
-import type { License, LicenseStatus, Plan } from '../types'
+import type { LicenseStatus, Plan } from '../types'
 
 type FilterStatus = 'all' | LicenseStatus
 
@@ -69,10 +70,8 @@ export function Licenses() {
 
   function handleCreate() {
     if (!form.clientId || !form.branchName) return
-    const license: License = {
-      id: generateId(),
+    addLicense({
       clientId: form.clientId,
-      licenseKey: generateLicenseKey(),
       branchName: form.branchName,
       branchAddress: form.branchAddress,
       plan: form.plan,
@@ -80,11 +79,23 @@ export function Licenses() {
       monthlyAmount: form.status === 'trial' ? 0 : PLAN_PRICES[form.plan],
       startedAt: form.startedAt,
       expiresAt: form.expiresAt,
-      createdAt: new Date().toISOString(),
-    }
-    addLicense(license)
+    })
     setShowCreate(false)
     setForm({ ...EMPTY_FORM })
+  }
+
+  async function handleGenerateFile(licenseId: string, branchName: string) {
+    try {
+      const blob = await downloadFile(`/api/admin/licenses/${licenseId}/generate-file`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `licencia-${branchName.toLowerCase().replace(/\s+/g, '-')}.copo`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // error visible en la consola del backend
+    }
   }
 
   return (
@@ -173,13 +184,24 @@ export function Licenses() {
                     {l.monthlyAmount > 0 ? formatCurrency(l.monthlyAmount) : <span className="text-slate-400 font-normal">—</span>}
                   </td>
                   <td className="px-5 py-3.5">
-                    <button
-                      onClick={() => navigate(`/clients/${l.clientId}`)}
-                      className="w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                      title="Ver cliente"
-                    >
-                      <ExternalLink size={14} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {l.status === 'active' && (
+                        <button
+                          onClick={() => handleGenerateFile(l.id, l.branchName)}
+                          title="Generar archivo .copo"
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                          <Download size={14} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigate(`/clients/${l.clientId}`)}
+                        className="w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Ver cliente"
+                      >
+                        <ExternalLink size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )

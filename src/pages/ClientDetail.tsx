@@ -12,11 +12,13 @@ import {
   PlayCircle,
   Copy,
   Check,
+  Download,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
 import { Modal, FormField, inputClass } from '../components/Modal'
-import { formatDate, formatCurrency, generateLicenseKey, generateId, isExpiringSoon, daysUntil } from '../lib/utils'
+import { formatDate, formatCurrency, isExpiringSoon, daysUntil } from '../lib/utils'
+import { downloadFile } from '../lib/api'
 import { PLAN_PRICES } from '../data/mock'
 import type { License, LicenseStatus, Plan } from '../types'
 
@@ -84,10 +86,8 @@ export function ClientDetail() {
 
   function handleCreateBranch() {
     if (!form.branchName) return
-    const license: License = {
-      id: generateId(),
+    addLicense({
       clientId: id!,
-      licenseKey: generateLicenseKey(),
       branchName: form.branchName,
       branchAddress: form.branchAddress,
       plan: form.plan,
@@ -95,11 +95,23 @@ export function ClientDetail() {
       monthlyAmount: form.status === 'trial' ? 0 : PLAN_PRICES[form.plan],
       startedAt: form.startedAt,
       expiresAt: form.expiresAt,
-      createdAt: new Date().toISOString(),
-    }
-    addLicense(license)
+    })
     setShowCreate(false)
     setForm({ ...EMPTY_BRANCH_FORM })
+  }
+
+  async function handleGenerateFile(licenseId: string, branchName: string) {
+    try {
+      const blob = await downloadFile(`/api/admin/licenses/${licenseId}/generate-file`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `licencia-${branchName.toLowerCase().replace(/\s+/g, '-')}.copo`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // error visible en la consola del backend
+    }
   }
 
   function toggleStatus(l: License) {
@@ -236,6 +248,15 @@ export function ClientDetail() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
+                        {l.status === 'active' && (
+                          <button
+                            onClick={() => handleGenerateFile(l.id, l.branchName)}
+                            title="Generar archivo .copo"
+                            className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          >
+                            <Download size={15} />
+                          </button>
+                        )}
                         {canToggle(l) && (
                           <button
                             onClick={() => toggleStatus(l)}

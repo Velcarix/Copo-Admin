@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Plus, ChevronRight, Building2, MapPin } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { Modal, FormField, inputClass } from '../components/Modal'
-import { formatDate, formatCurrency, generateId } from '../lib/utils'
-import type { Client } from '../types'
+import { formatDate, formatCurrency } from '../lib/utils'
 
 export function Clients() {
   const { clients, licenses, addClient } = useApp()
@@ -33,12 +32,7 @@ export function Clients() {
 
   function handleCreate() {
     if (!form.ownerName || !form.businessName || !form.email) return
-    const client: Client = {
-      id: generateId(),
-      ...form,
-      createdAt: new Date().toISOString(),
-    }
-    addClient(client)
+    addClient(form)
     setShowCreate(false)
     setForm({ ownerName: '', businessName: '', email: '', phone: '', city: '', state: '' })
   }
