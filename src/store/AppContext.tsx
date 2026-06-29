@@ -25,6 +25,7 @@ interface BackendBusiness {
   notes: string | null
   createdAt: string
   employees?: BackendOwnerEmployee[]
+  owner?: { username: string; name: string; tempPassword: string }
 }
 
 interface BackendBranch {
@@ -130,7 +131,7 @@ interface AppContextValue {
   licenses: License[]
   isLoading: boolean
   error: string | null
-  addClient: (data: ClientCreateData) => Promise<void>
+  addClient: (data: ClientCreateData) => Promise<{ username: string; name: string; tempPassword: string }>
   updateClient: (id: string, data: ClientUpdateData) => Promise<void>
   addLicense: (data: LicenseCreateData) => Promise<void>
   updateLicense: (id: string, data: LicenseUpdateData) => Promise<void>
@@ -182,6 +183,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const res = await adminApi.post<{ data: BackendBusiness }>('/api/admin/clients', body)
     setClients(prev => [mapClient(res.data), ...prev])
+    const owner = res.data.owner!
+    return { username: owner.username, name: owner.name, tempPassword: owner.tempPassword }
   }
 
   async function updateClient(id: string, data: ClientUpdateData) {
