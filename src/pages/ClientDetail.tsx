@@ -26,7 +26,7 @@ import type { ClientUpdateData } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency, isExpiringSoon, daysUntil } from '../lib/utils'
-import { downloadFile } from '../lib/api'
+import { downloadFile, adminApi } from '../lib/api'
 import { PLAN_PRICES } from '../data/mock'
 import type { License, LicenseStatus, Plan } from '../types'
 
@@ -132,13 +132,11 @@ export function ClientDetail() {
     }
     let cancelled = false
     setCpLoading(true)
-    fetch(`https://api-sepomex.hckdrk.mx/query/info_cp/${form.postalCode}`)
-      .then(r => r.json())
-      .then(data => {
-        if (cancelled || data.error) return
-        const r = data.response
-        setForm(prev => ({ ...prev, city: r.municipio || r.ciudad || '', state: r.estado || '' }))
-        setColonias(Array.isArray(r.colonias) ? r.colonias : [])
+    adminApi.get<{ data: { city: string; state: string; colonias: string[] } }>(`/api/admin/postal-code/${form.postalCode}`)
+      .then(res => {
+        if (cancelled) return
+        setForm(prev => ({ ...prev, city: res.data.city, state: res.data.state }))
+        setColonias(res.data.colonias)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setCpLoading(false) })
