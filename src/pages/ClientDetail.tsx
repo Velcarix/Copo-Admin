@@ -61,7 +61,7 @@ const EMPTY_EDIT_FORM: ClientUpdateData = {
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { clients, getClientLicenses, addLicense, updateLicenseStatus, deleteLicense, updateClient } = useApp()
+  const { clients, getClientLicenses, addLicense, updateLicenseStatus, deleteLicense, updateClient, deleteClient } = useApp()
 
   const client = clients.find(c => c.id === id)
   const licenses = getClientLicenses(id ?? '')
@@ -69,6 +69,8 @@ export function ClientDetail() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_BRANCH_FORM })
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [showDeleteClient, setShowDeleteClient] = useState(false)
+  const [deleteClientError, setDeleteClientError] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState<ClientUpdateData>({ ...EMPTY_EDIT_FORM })
   const [editError, setEditError] = useState<string | null>(null)
@@ -86,6 +88,17 @@ export function ClientDetail() {
     })
     setEditError(null)
     setShowEdit(true)
+  }
+
+  async function handleDeleteClient() {
+    if (!id) return
+    setDeleteClientError(null)
+    try {
+      await deleteClient(id)
+      navigate('/clients')
+    } catch (err) {
+      setDeleteClientError(err instanceof Error ? err.message : 'Error al eliminar el cliente')
+    }
   }
 
   async function handleEdit() {
@@ -187,6 +200,14 @@ export function ClientDetail() {
             >
               <Pencil size={12} />
               Editar
+            </button>
+            <button
+              onClick={() => { setDeleteClientError(null); setShowDeleteClient(true) }}
+              title="Eliminar cliente"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg hover:bg-red-50 hover:text-red-700 transition-colors"
+            >
+              <Trash2 size={12} />
+              Eliminar cliente
             </button>
           </div>
           <p className="text-sm text-slate-500 mt-0.5">{client.ownerName}</p>
@@ -450,6 +471,40 @@ export function ClientDetail() {
             </ul>
             <p className="text-xs text-slate-400 pt-1">
               Si solo quieres desactivar el POS sin borrar los datos, usa "Suspender" en lugar de eliminar.
+            </p>
+          </div>
+        </Modal>
+      )}
+
+      {/* Delete client confirm */}
+      {showDeleteClient && (
+        <Modal
+          title="Eliminar cliente"
+          onClose={() => setShowDeleteClient(false)}
+          onConfirm={handleDeleteClient}
+          confirmLabel="Sí, eliminar todo permanentemente"
+          error={deleteClientError}
+        >
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
+              <div>
+                <p className="text-sm font-semibold text-red-700">Esta acción es irreversible</p>
+                <p className="text-sm text-red-600 mt-1">
+                  Se eliminará permanentemente <span className="font-semibold">{client.businessName}</span> y absolutamente todos sus datos:
+                </p>
+              </div>
+            </div>
+            <ul className="text-sm text-slate-600 space-y-1.5 pl-4">
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Todas las sucursales y licencias ({licenses.length} licencia{licenses.length !== 1 ? 's' : ''})</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Historial completo de ventas y órdenes</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Productos, modificadores e inventario</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Empleados, turnos y accesos</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Configuración, mesas y datos fiscales</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />El perfil del negocio y usuario OWNER</li>
+            </ul>
+            <p className="text-xs text-slate-400 pt-1">
+              Si solo quieres pausar el acceso al POS, suspende las licencias en lugar de eliminar el cliente.
             </p>
           </div>
         </Modal>

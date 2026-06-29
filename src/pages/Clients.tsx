@@ -68,16 +68,20 @@ export function Clients() {
 
   async function handleCreate() {
     setCreateError(null)
-    const owner = await addClient(form)
-    setShowCreate(false)
-    setCredentials({
-      businessName: form.businessName,
-      ownerName: form.ownerName,
-      email: form.email,
-      username: owner.username,
-      tempPassword: owner.tempPassword,
-    })
-    setForm({ ...EMPTY_FORM })
+    try {
+      const owner = await addClient(form)
+      setShowCreate(false)
+      setCredentials({
+        businessName: form.businessName,
+        ownerName: form.ownerName,
+        email: form.email,
+        username: owner.username,
+        tempPassword: owner.tempPassword,
+      })
+      setForm({ ...EMPTY_FORM })
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Error al crear el cliente')
+    }
   }
 
   function openCreate() {

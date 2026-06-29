@@ -133,6 +133,7 @@ interface AppContextValue {
   error: string | null
   addClient: (data: ClientCreateData) => Promise<{ username: string; name: string; tempPassword: string }>
   updateClient: (id: string, data: ClientUpdateData) => Promise<void>
+  deleteClient: (id: string) => Promise<void>
   addLicense: (data: LicenseCreateData) => Promise<void>
   updateLicense: (id: string, data: LicenseUpdateData) => Promise<void>
   updateLicenseStatus: (id: string, status: LicenseStatus) => Promise<void>
@@ -183,8 +184,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const res = await adminApi.post<{ data: BackendBusiness }>('/api/admin/clients', body)
     setClients(prev => [mapClient(res.data), ...prev])
-    const owner = res.data.owner!
+    const owner = res.data.owner
+    if (!owner) throw new Error('El servidor no devolvió las credenciales del usuario OWNER. Verifica que el backend esté actualizado.')
     return { username: owner.username, name: owner.name, tempPassword: owner.tempPassword }
+  }
+
+  async function deleteClient(id: string) {
+    await adminApi.delete(`/api/admin/clients/${id}`)
+    setClients(prev => prev.filter(c => c.id !== id))
+    setLicenses(prev => prev.filter(l => l.clientId !== id))
   }
 
   async function updateClient(id: string, data: ClientUpdateData) {
@@ -257,6 +265,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         error,
         addClient,
         updateClient,
+        deleteClient,
         addLicense,
         updateLicense,
         updateLicenseStatus,
