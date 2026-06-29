@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ChevronRight, Building2, MapPin, Copy, Check, User, KeyRound } from 'lucide-react'
+import { Search, Plus, ChevronRight, Building2, MapPin, Copy, Check, User, KeyRound, ArrowRight } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency } from '../lib/utils'
 
 interface CreatedCredentials {
+  clientId: string
   businessName: string
   ownerName: string
   email: string
@@ -76,6 +77,7 @@ export function Clients() {
       const owner = await addClient(form)
       setShowCreate(false)
       setCredentials({
+        clientId: owner.id,
         businessName: form.businessName,
         ownerName: form.ownerName,
         email: form.email,
@@ -236,6 +238,12 @@ export function Clients() {
         <Modal
           title="Cliente creado"
           onClose={() => setCredentials(null)}
+          onConfirm={() => {
+            const id = credentials.clientId
+            setCredentials(null)
+            navigate(`/clients/${id}`, { state: { openCreateBranch: true } })
+          }}
+          confirmLabel="Crear sucursal →"
         >
           <div className="space-y-5">
             {/* Success indicator */}

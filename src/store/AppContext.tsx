@@ -131,7 +131,7 @@ interface AppContextValue {
   licenses: License[]
   isLoading: boolean
   error: string | null
-  addClient: (data: ClientCreateData) => Promise<{ username: string; name: string; tempPassword: string }>
+  addClient: (data: ClientCreateData) => Promise<{ id: string; username: string; name: string; tempPassword: string }>
   updateClient: (id: string, data: ClientUpdateData) => Promise<void>
   deleteClient: (id: string) => Promise<void>
   addLicense: (data: LicenseCreateData) => Promise<void>
@@ -186,7 +186,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClients(prev => [mapClient(res.data), ...prev])
     const owner = res.data.owner
     if (!owner) throw new Error('El servidor no devolvió las credenciales del usuario OWNER. Verifica que el backend esté actualizado.')
-    return { username: owner.username, name: owner.name, tempPassword: owner.tempPassword }
+    return { id: res.data.id, username: owner.username, name: owner.name, tempPassword: owner.tempPassword }
   }
 
   async function deleteClient(id: string) {

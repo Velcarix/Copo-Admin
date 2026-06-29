@@ -3,7 +3,7 @@ import { useState, useMemo } from 'react'
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   Mail,
@@ -65,12 +65,13 @@ const EMPTY_EDIT_FORM: ClientUpdateData = {
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { clients, getClientLicenses, addLicense, updateLicenseStatus, deleteLicense, updateClient, deleteClient } = useApp()
 
   const client = clients.find(c => c.id === id)
   const licenses = getClientLicenses(id ?? '')
 
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreate, setShowCreate] = useState((location.state as { openCreateBranch?: boolean } | null)?.openCreateBranch ?? false)
   const [form, setForm] = useState({ ...EMPTY_BRANCH_FORM })
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [showDeleteClient, setShowDeleteClient] = useState(false)
