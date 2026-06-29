@@ -121,6 +121,7 @@ export type ClientUpdateData = Partial<Omit<Client, 'id' | 'createdAt' | 'ownerE
 export type LicenseCreateData = Omit<License, 'id' | 'licenseKey' | 'createdAt'>
 export interface LicenseUpdateData {
   branchName?: string
+  branchAddress?: string
   plan?: Plan
   status?: LicenseStatus
   expiresAt?: string
@@ -230,6 +231,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function updateLicense(id: string, data: LicenseUpdateData) {
     const body: Record<string, string | undefined> = {}
     if (data.branchName) body.branchName = data.branchName
+    if (data.branchAddress !== undefined) body.branchAddress = data.branchAddress
     if (data.plan) body.plan = PLAN_TO_BACKEND[data.plan]
     if (data.status) body.status = STATUS_TO_BACKEND[data.status]
     if (data.expiresAt) body.expiresAt = `${data.expiresAt}T00:00:00.000Z`

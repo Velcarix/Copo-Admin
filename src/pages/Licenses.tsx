@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Plus, ExternalLink, Download, Pencil, RefreshCw, Check } from 'lucide-react'
 import { useApp } from '../store/AppContext'
@@ -6,7 +6,7 @@ import type { LicenseUpdateData } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency, isExpiringSoon } from '../lib/utils'
-import { downloadFile } from '../lib/api'
+import { downloadFile, adminApi } from '../lib/api'
 import { PLAN_PRICES } from '../data/mock'
 import type { License, LicenseStatus, Plan } from '../types'
 
@@ -37,6 +37,11 @@ type TipoLicencia = 'basico' | 'prueba'
 
 interface EditForm {
   branchName: string
+  street: string
+  postalCode: string
+  colonia: string
+  city: string
+  state: string
   tipo: TipoLicencia
   status: 'active' | 'expired'
   expiresAt: string
@@ -45,6 +50,11 @@ interface EditForm {
 function licenseToEditForm(l: License): EditForm {
   return {
     branchName: l.branchName,
+    street: '',
+    postalCode: '',
+    colonia: '',
+    city: '',
+    state: '',
     tipo: l.status === 'trial' ? 'prueba' : 'basico',
     status: l.status === 'expired' ? 'expired' : 'active',
     expiresAt: l.expiresAt,
@@ -65,6 +75,24 @@ export function Licenses() {
   const [editError, setEditError] = useState<string | null>(null)
   const [showRegenConfirm, setShowRegenConfirm] = useState(false)
   const [regenDone, setRegenDone] = useState<string | null>(null)
+  const [editColonias, setEditColonias] = useState<string[]>([])
+  const [editCpLoading, setEditCpLoading] = useState(false)
+
+  useEffect(() => {
+    const cp = editForm?.postalCode ?? ''
+    if (cp.length !== 5) { setEditColonias([]); return }
+    let cancelled = false
+    setEditCpLoading(true)
+    adminApi.get<{ data: { city: string; state: string; colonias: string[] } }>(`/api/admin/postal-code/${cp}`)
+      .then(res => {
+        if (cancelled) return
+        setEditForm(prev => prev ? { ...prev, city: res.data.city, state: res.data.state } : prev)
+        setEditColonias(res.data.colonias)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setEditCpLoading(false) })
+    return () => { cancelled = true }
+  }, [editForm?.postalCode])
 
   const clientMap = useMemo(() => {
     const m: Record<string, string> = {}
@@ -136,7 +164,12 @@ export function Licenses() {
 
   async function handleEdit() {
     if (!editTarget || !editForm) return
-    const data: LicenseUpdateData = { branchName: editForm.branchName, expiresAt: editForm.expiresAt }
+    const addressParts = [editForm.street, editForm.colonia, editForm.city, editForm.state, editForm.postalCode].filter(Boolean)
+    const data: LicenseUpdateData = {
+      branchName: editForm.branchName,
+      expiresAt: editForm.expiresAt,
+      ...(addressParts.length > 0 ? { branchAddress: addressParts.join(', ') } : {}),
+    }
     if (editForm.tipo === 'prueba') {
       data.plan = 'basico'
       data.status = 'trial'
@@ -147,6 +180,7 @@ export function Licenses() {
     await updateLicense(editTarget.id, data)
     setEditTarget(null)
     setEditForm(null)
+    setEditColonias([])
   }
 
   async function handleGenerateFile(licenseId: string, branchName: string) {
@@ -412,6 +446,40 @@ export function Licenses() {
 
             <FormField label="Nombre de la sucursal" required>
               <input value={editForm.branchName} onChange={ef('branchName')} className={inputClass} />
+            </FormField>
+
+            {editTarget.branchAddress && (
+              <p className="text-xs text-slate-400">Dirección actual: <span className="text-slate-600">{editTarget.branchAddress}</span></p>
+            )}
+
+            <FormField label="Calle">
+              <input value={editForm.street} onChange={ef('street')} placeholder="Ej. Av. García Lavín 123" className={inputClass} />
+            </FormField>
+
+            <div className="grid grid-cols-3 gap-4">
+              <FormField label="Código postal">
+                <div className="relative">
+                  <input value={editForm.postalCode} onChange={ef('postalCode')} placeholder="97000" maxLength={5} className={inputClass} />
+                  {editCpLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">cargando…</span>}
+                </div>
+              </FormField>
+              <FormField label="Ciudad">
+                <input value={editForm.city} readOnly placeholder="Auto" className={inputClass + ' bg-slate-50 text-slate-600'} />
+              </FormField>
+              <FormField label="Estado">
+                <input value={editForm.state} readOnly placeholder="Auto" className={inputClass + ' bg-slate-50 text-slate-600'} />
+              </FormField>
+            </div>
+
+            <FormField label="Colonia">
+              {editColonias.length > 0 ? (
+                <select value={editForm.colonia} onChange={ef('colonia')} className={inputClass}>
+                  <option value="">Seleccionar colonia…</option>
+                  {editColonias.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              ) : (
+                <input value={editForm.colonia} onChange={ef('colonia')} placeholder={editForm.postalCode.length === 5 ? 'No encontrada — escribe manualmente' : 'Ingresa el código postal primero'} className={inputClass} />
+              )}
             </FormField>
 
             <div className="grid grid-cols-2 gap-4">
