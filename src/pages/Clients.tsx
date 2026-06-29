@@ -11,6 +11,7 @@ export function Clients() {
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ ownerName: '', businessName: '', email: '', phone: '', city: '', state: '' })
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const filtered = useMemo(
     () =>
@@ -30,11 +31,16 @@ export function Clients() {
     return { total: cls.length, active: active.length, mrr }
   }
 
-  function handleCreate() {
-    if (!form.ownerName || !form.businessName || !form.email) return
-    addClient(form)
+  async function handleCreate() {
+    setCreateError(null)
+    await addClient(form)
     setShowCreate(false)
     setForm({ ownerName: '', businessName: '', email: '', phone: '', city: '', state: '' })
+  }
+
+  function openCreate() {
+    setCreateError(null)
+    setShowCreate(true)
   }
 
   const f = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -49,7 +55,7 @@ export function Clients() {
           <p className="text-sm text-slate-500 mt-1">{clients.length} clientes registrados</p>
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus size={16} />
@@ -133,10 +139,11 @@ export function Clients() {
       {showCreate && (
         <Modal
           title="Nuevo cliente"
-          onClose={() => setShowCreate(false)}
+          onClose={() => { setShowCreate(false); setCreateError(null) }}
           onConfirm={handleCreate}
           confirmLabel="Crear cliente"
           confirmDisabled={!form.ownerName || !form.businessName || !form.email}
+          error={createError}
         >
           <div className="space-y-4">
             <FormField label="Nombre del negocio" required>

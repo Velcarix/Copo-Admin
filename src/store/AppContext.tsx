@@ -1,11 +1,18 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import type { Client, License, LicenseStatus, Plan } from '../types'
+import type { Client, License, LicenseStatus, Plan, OwnerEmployee } from '../types'
 import { adminApi } from '../lib/api'
 
 // ── Backend response types ────────────────────────────────────────────────────
 
 type BackendPlan = 'BASIC' | 'PRO' | 'ENTERPRISE'
 type BackendStatus = 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'TRIAL'
+
+interface BackendOwnerEmployee {
+  id: string
+  username: string
+  name: string
+  email: string | null
+}
 
 interface BackendBusiness {
   id: string
@@ -17,6 +24,7 @@ interface BackendBusiness {
   state: string | null
   notes: string | null
   createdAt: string
+  employees?: BackendOwnerEmployee[]
 }
 
 interface BackendBranch {
@@ -69,7 +77,12 @@ const STATUS_TO_BACKEND: Record<LicenseStatus, BackendStatus> = {
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
+function mapOwnerEmployee(e: BackendOwnerEmployee): OwnerEmployee {
+  return { id: e.id, username: e.username, name: e.name, email: e.email }
+}
+
 function mapClient(b: BackendBusiness): Client {
+  const ownerEmp = b.employees?.[0]
   return {
     id: b.id,
     businessName: b.name,
@@ -80,6 +93,7 @@ function mapClient(b: BackendBusiness): Client {
     state: b.state ?? '',
     notes: b.notes ?? undefined,
     createdAt: b.createdAt,
+    ownerEmployee: ownerEmp ? mapOwnerEmployee(ownerEmp) : undefined,
   }
 }
 
@@ -101,8 +115,15 @@ function mapLicense(l: BackendBranchLicense): License {
 
 // ── Context types ─────────────────────────────────────────────────────────────
 
-export type ClientCreateData = Omit<Client, 'id' | 'createdAt'>
+export type ClientCreateData = Omit<Client, 'id' | 'createdAt' | 'ownerEmployee'>
+export type ClientUpdateData = Partial<Omit<Client, 'id' | 'createdAt' | 'ownerEmployee'>>
 export type LicenseCreateData = Omit<License, 'id' | 'licenseKey' | 'createdAt'>
+export interface LicenseUpdateData {
+  branchName?: string
+  plan?: Plan
+  status?: LicenseStatus
+  expiresAt?: string
+}
 
 interface AppContextValue {
   clients: Client[]
@@ -110,7 +131,9 @@ interface AppContextValue {
   isLoading: boolean
   error: string | null
   addClient: (data: ClientCreateData) => Promise<void>
+  updateClient: (id: string, data: ClientUpdateData) => Promise<void>
   addLicense: (data: LicenseCreateData) => Promise<void>
+  updateLicense: (id: string, data: LicenseUpdateData) => Promise<void>
   updateLicenseStatus: (id: string, status: LicenseStatus) => Promise<void>
   deleteLicense: (id: string) => Promise<void>
   getClientLicenses: (clientId: string) => License[]
@@ -160,6 +183,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClients(prev => [mapClient(res.data), ...prev])
   }
 
+  async function updateClient(id: string, data: ClientUpdateData) {
+    const body: Record<string, string | null | undefined> = {}
+    if (data.businessName !== undefined) body.name = data.businessName
+    if (data.ownerName !== undefined) body.ownerName = data.ownerName || null
+    if (data.email !== undefined) body.contactEmail = data.email || null
+    if (data.phone !== undefined) body.phone = data.phone || null
+    if (data.city !== undefined) body.city = data.city || null
+    if (data.state !== undefined) body.state = data.state || null
+    if (data.notes !== undefined) body.notes = data.notes || null
+    const res = await adminApi.put<{ data: BackendBusiness }>(`/api/admin/clients/${id}`, body)
+    setClients(prev => prev.map(c => (c.id === id ? { ...mapClient(res.data), ownerEmployee: c.ownerEmployee } : c)))
+  }
+
   async function addLicense(data: LicenseCreateData) {
     const body = {
       businessId: data.clientId,
@@ -176,6 +212,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }>('/api/admin/licenses', body)
     const merged: BackendBranchLicense = { ...res.data.license, branch: res.data.branch }
     setLicenses(prev => [mapLicense(merged), ...prev])
+  }
+
+  async function updateLicense(id: string, data: LicenseUpdateData) {
+    const body: Record<string, string | undefined> = {}
+    if (data.branchName) body.branchName = data.branchName
+    if (data.plan) body.plan = PLAN_TO_BACKEND[data.plan]
+    if (data.status) body.status = STATUS_TO_BACKEND[data.status]
+    if (data.expiresAt) body.expiresAt = `${data.expiresAt}T00:00:00.000Z`
+    const res = await adminApi.put<{ data: BackendBranchLicense }>(`/api/admin/licenses/${id}`, body)
+    setLicenses(prev => prev.map(l => (l.id === id ? mapLicense(res.data) : l)))
   }
 
   async function updateLicenseStatus(id: string, status: LicenseStatus) {
@@ -201,7 +247,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         error,
         addClient,
+        updateClient,
         addLicense,
+        updateLicense,
         updateLicenseStatus,
         deleteLicense,
         getClientLicenses,

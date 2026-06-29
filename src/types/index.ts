@@ -1,6 +1,13 @@
 export type Plan = 'basico' | 'pro' | 'enterprise'
 export type LicenseStatus = 'active' | 'suspended' | 'expired' | 'trial'
 
+export interface OwnerEmployee {
+  id: string
+  username: string
+  name: string
+  email: string | null
+}
+
 export interface Client {
   id: string
   ownerName: string
@@ -11,6 +18,7 @@ export interface Client {
   state: string
   createdAt: string
   notes?: string
+  ownerEmployee?: OwnerEmployee
 }
 
 export interface License {

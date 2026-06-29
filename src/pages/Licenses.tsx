@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ExternalLink, Download } from 'lucide-react'
+import { Search, Plus, ExternalLink, Download, Pencil } from 'lucide-react'
 import { useApp } from '../store/AppContext'
+import type { LicenseUpdateData } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency, isExpiringSoon } from '../lib/utils'
 import { downloadFile } from '../lib/api'
 import { PLAN_PRICES } from '../data/mock'
-import type { LicenseStatus, Plan } from '../types'
+import type { License, LicenseStatus, Plan } from '../types'
 
 type FilterStatus = 'all' | LicenseStatus
 
@@ -19,7 +20,7 @@ const FILTER_TABS: { value: FilterStatus; label: string }[] = [
   { value: 'expired', label: 'Expiradas' },
 ]
 
-const EMPTY_FORM = {
+const EMPTY_CREATE_FORM = {
   clientId: '',
   branchName: '',
   branchAddress: '',
@@ -29,14 +30,39 @@ const EMPTY_FORM = {
   expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
 }
 
+// "tipo" combina plan+status en la vista del admin:
+// 'basico' → plan=basico, status=active|expired
+// 'prueba' → status=trial (plan=basico under the hood)
+type TipoLicencia = 'basico' | 'prueba'
+
+interface EditForm {
+  branchName: string
+  tipo: TipoLicencia
+  status: 'active' | 'expired'
+  expiresAt: string
+}
+
+function licenseToEditForm(l: License): EditForm {
+  return {
+    branchName: l.branchName,
+    tipo: l.status === 'trial' ? 'prueba' : 'basico',
+    status: l.status === 'expired' ? 'expired' : 'active',
+    expiresAt: l.expiresAt,
+  }
+}
+
 export function Licenses() {
-  const { licenses, clients, addLicense } = useApp()
+  const { licenses, clients, addLicense, updateLicense } = useApp()
   const navigate = useNavigate()
 
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [createForm, setCreateForm] = useState({ ...EMPTY_CREATE_FORM })
+
+  const [editTarget, setEditTarget] = useState<License | null>(null)
+  const [editForm, setEditForm] = useState<EditForm | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const clientMap = useMemo(() => {
     const m: Record<string, string> = {}
@@ -63,25 +89,51 @@ export function Licenses() {
     return c
   }, [licenses])
 
-  function f(field: keyof typeof form) {
+  function cf(field: keyof typeof createForm) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm(prev => ({ ...prev, [field]: e.target.value }))
+      setCreateForm(prev => ({ ...prev, [field]: e.target.value }))
+  }
+
+  function ef(field: keyof EditForm) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setEditForm(prev => prev ? { ...prev, [field]: e.target.value } : prev)
   }
 
   function handleCreate() {
-    if (!form.clientId || !form.branchName) return
+    if (!createForm.clientId || !createForm.branchName) return
     addLicense({
-      clientId: form.clientId,
-      branchName: form.branchName,
-      branchAddress: form.branchAddress,
-      plan: form.plan,
-      status: form.status,
-      monthlyAmount: form.status === 'trial' ? 0 : PLAN_PRICES[form.plan],
-      startedAt: form.startedAt,
-      expiresAt: form.expiresAt,
+      clientId: createForm.clientId,
+      branchName: createForm.branchName,
+      branchAddress: createForm.branchAddress,
+      plan: createForm.plan,
+      status: createForm.status,
+      monthlyAmount: createForm.status === 'trial' ? 0 : PLAN_PRICES[createForm.plan],
+      startedAt: createForm.startedAt,
+      expiresAt: createForm.expiresAt,
     })
     setShowCreate(false)
-    setForm({ ...EMPTY_FORM })
+    setCreateForm({ ...EMPTY_CREATE_FORM })
+  }
+
+  function openEdit(l: License) {
+    setEditTarget(l)
+    setEditForm(licenseToEditForm(l))
+    setEditError(null)
+  }
+
+  async function handleEdit() {
+    if (!editTarget || !editForm) return
+    const data: LicenseUpdateData = { branchName: editForm.branchName, expiresAt: editForm.expiresAt }
+    if (editForm.tipo === 'prueba') {
+      data.plan = 'basico'
+      data.status = 'trial'
+    } else {
+      data.plan = 'basico'
+      data.status = editForm.status
+    }
+    await updateLicense(editTarget.id, data)
+    setEditTarget(null)
+    setEditForm(null)
   }
 
   async function handleGenerateFile(licenseId: string, branchName: string) {
@@ -153,7 +205,7 @@ export function Licenses() {
         <table className="w-full">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {['Clave de licencia', 'Sucursal', 'Cliente', 'Plan', 'Estado', 'Vence', 'Mensual', ''].map(h => (
+              {['Clave de licencia', 'Sucursal', 'Cliente', 'Plan', 'Estado', 'Vence', ''].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide">
                   {h}
                 </th>
@@ -180,11 +232,15 @@ export function Licenses() {
                     </p>
                     {soon && <p className="text-xs text-amber-500">Vence pronto</p>}
                   </td>
-                  <td className="px-5 py-3.5 text-sm font-semibold text-slate-900 tabular-nums">
-                    {l.monthlyAmount > 0 ? formatCurrency(l.monthlyAmount) : <span className="text-slate-400 font-normal">—</span>}
-                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => openEdit(l)}
+                        title="Editar licencia"
+                        className="w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                      >
+                        <Pencil size={14} />
+                      </button>
                       {l.status !== 'suspended' && l.status !== 'expired' && (
                         <button
                           onClick={() => handleGenerateFile(l.id, l.branchName)}
@@ -219,15 +275,15 @@ export function Licenses() {
       {showCreate && (
         <Modal
           title="Nueva licencia"
-          onClose={() => { setShowCreate(false); setForm({ ...EMPTY_FORM }) }}
+          onClose={() => { setShowCreate(false); setCreateForm({ ...EMPTY_CREATE_FORM }) }}
           onConfirm={handleCreate}
           confirmLabel="Crear licencia"
-          confirmDisabled={!form.clientId || !form.branchName}
+          confirmDisabled={!createForm.clientId || !createForm.branchName}
           size="lg"
         >
           <div className="space-y-4">
             <FormField label="Cliente" required>
-              <select value={form.clientId} onChange={f('clientId')} className={inputClass}>
+              <select value={createForm.clientId} onChange={cf('clientId')} className={inputClass}>
                 <option value="">Seleccionar cliente...</option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.businessName} — {c.ownerName}</option>
@@ -236,36 +292,36 @@ export function Licenses() {
             </FormField>
 
             <FormField label="Nombre de la sucursal" required>
-              <input value={form.branchName} onChange={f('branchName')} placeholder="Ej. Sucursal Centro" className={inputClass} />
+              <input value={createForm.branchName} onChange={cf('branchName')} placeholder="Ej. Sucursal Centro" className={inputClass} />
             </FormField>
 
             <FormField label="Dirección de la sucursal">
-              <input value={form.branchAddress} onChange={f('branchAddress')} placeholder="Calle, colonia, ciudad" className={inputClass} />
+              <input value={createForm.branchAddress} onChange={cf('branchAddress')} placeholder="Calle, colonia, ciudad" className={inputClass} />
             </FormField>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Plan">
-                <select value={form.plan} onChange={f('plan')} className={inputClass}>
-                  <option value="basico">Básico — $499/mes</option>
-                  <option value="pro">Pro — $899/mes</option>
-                  <option value="enterprise">Enterprise — $1,799/mes</option>
+                <select value={createForm.plan} onChange={cf('plan')} className={inputClass}>
+                  <option value="basico">Básico</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
                 </select>
               </FormField>
               <FormField label="Estado">
-                <select value={form.status} onChange={f('status')} className={inputClass}>
-                  <option value="active">Activa</option>
+                <select value={createForm.status} onChange={cf('status')} className={inputClass}>
+                  <option value="active">Activo</option>
                   <option value="trial">Prueba</option>
-                  <option value="suspended">Suspendida</option>
+                  <option value="suspended">Suspendido</option>
                 </select>
               </FormField>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Inicio">
-                <input type="date" value={form.startedAt} onChange={f('startedAt')} className={inputClass} />
+                <input type="date" value={createForm.startedAt} onChange={cf('startedAt')} className={inputClass} />
               </FormField>
               <FormField label="Vencimiento">
-                <input type="date" value={form.expiresAt} onChange={f('expiresAt')} className={inputClass} />
+                <input type="date" value={createForm.expiresAt} onChange={cf('expiresAt')} className={inputClass} />
               </FormField>
             </div>
 
@@ -275,9 +331,55 @@ export function Licenses() {
                 <p className="text-xs text-blue-500 mt-0.5">Se generará automáticamente al crear</p>
               </div>
               <span className="text-sm font-semibold text-blue-800">
-                {form.status === 'trial' ? 'Gratis (prueba)' : formatCurrency(PLAN_PRICES[form.plan])}/mes
+                {createForm.status === 'trial' ? 'Gratis (prueba)' : formatCurrency(PLAN_PRICES[createForm.plan])}/mes
               </span>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit license modal */}
+      {editTarget && editForm && (
+        <Modal
+          title="Editar licencia"
+          onClose={() => { setEditTarget(null); setEditForm(null) }}
+          onConfirm={handleEdit}
+          confirmLabel="Guardar cambios"
+          confirmDisabled={!editForm.branchName}
+          error={editError}
+        >
+          <div className="space-y-4">
+            <div className="bg-slate-50 rounded-lg px-4 py-2.5">
+              <p className="text-xs text-slate-400">
+                Clave: <span className="font-mono text-slate-600">{editTarget.licenseKey}</span>
+              </p>
+            </div>
+
+            <FormField label="Nombre de la sucursal" required>
+              <input value={editForm.branchName} onChange={ef('branchName')} className={inputClass} />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Plan">
+                <select value={editForm.tipo} onChange={ef('tipo')} className={inputClass}>
+                  <option value="basico">Básico</option>
+                  <option value="prueba">Prueba</option>
+                </select>
+              </FormField>
+
+              {editForm.tipo === 'basico' && (
+                <FormField label="Estado">
+                  <select value={editForm.status} onChange={ef('status')} className={inputClass}>
+                    <option value="active">Activo</option>
+                    <option value="expired">Vencido</option>
+                  </select>
+                </FormField>
+              )}
+            </div>
+
+            <FormField label="Fecha de vencimiento">
+              <input type="date" value={editForm.expiresAt} onChange={ef('expiresAt')} className={inputClass} />
+            </FormField>
           </div>
         </Modal>
       )}

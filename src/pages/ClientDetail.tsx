@@ -13,8 +13,11 @@ import {
   Copy,
   Check,
   Download,
+  Pencil,
+  User,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
+import type { ClientUpdateData } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency, isExpiringSoon, daysUntil } from '../lib/utils'
@@ -45,10 +48,20 @@ const EMPTY_BRANCH_FORM = {
   expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
 }
 
+const EMPTY_EDIT_FORM: ClientUpdateData = {
+  businessName: '',
+  ownerName: '',
+  email: '',
+  phone: '',
+  city: '',
+  state: '',
+  notes: '',
+}
+
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { clients, getClientLicenses, addLicense, updateLicenseStatus, deleteLicense } = useApp()
+  const { clients, getClientLicenses, addLicense, updateLicenseStatus, deleteLicense, updateClient } = useApp()
 
   const client = clients.find(c => c.id === id)
   const licenses = getClientLicenses(id ?? '')
@@ -56,6 +69,36 @@ export function ClientDetail() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_BRANCH_FORM })
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState<ClientUpdateData>({ ...EMPTY_EDIT_FORM })
+  const [editError, setEditError] = useState<string | null>(null)
+
+  function openEdit() {
+    if (!client) return
+    setEditForm({
+      businessName: client.businessName,
+      ownerName: client.ownerName,
+      email: client.email,
+      phone: client.phone,
+      city: client.city,
+      state: client.state,
+      notes: client.notes ?? '',
+    })
+    setEditError(null)
+    setShowEdit(true)
+  }
+
+  async function handleEdit() {
+    if (!id || !editForm.businessName) return
+    setEditError(null)
+    await updateClient(id, editForm)
+    setShowEdit(false)
+  }
+
+  function ef(field: keyof ClientUpdateData) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setEditForm(prev => ({ ...prev, [field]: e.target.value }))
+  }
 
   const mrr = useMemo(
     () => licenses.filter(l => l.status === 'active').reduce((s, l) => s + l.monthlyAmount, 0),
@@ -135,7 +178,17 @@ export function ClientDetail() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{client.businessName}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold text-slate-900">{client.businessName}</h1>
+            <button
+              onClick={openEdit}
+              title="Editar perfil"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-700 transition-colors"
+            >
+              <Pencil size={12} />
+              Editar
+            </button>
+          </div>
           <p className="text-sm text-slate-500 mt-0.5">{client.ownerName}</p>
         </div>
         <div className="text-right">
@@ -149,8 +202,8 @@ export function ClientDetail() {
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
           <Mail size={16} className="text-slate-400 shrink-0" />
           <div className="min-w-0">
-            <p className="text-xs text-slate-400 font-medium">Correo</p>
-            <p className="text-sm text-slate-700 truncate">{client.email}</p>
+            <p className="text-xs text-slate-400 font-medium">Correo de contacto</p>
+            <p className="text-sm text-slate-700 truncate">{client.email || '—'}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
@@ -164,7 +217,7 @@ export function ClientDetail() {
           <MapPin size={16} className="text-slate-400 shrink-0" />
           <div className="min-w-0">
             <p className="text-xs text-slate-400 font-medium">Ubicación</p>
-            <p className="text-sm text-slate-700">{client.city}, {client.state}</p>
+            <p className="text-sm text-slate-700">{[client.city, client.state].filter(Boolean).join(', ') || '—'}</p>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
@@ -175,6 +228,32 @@ export function ClientDetail() {
           </div>
         </div>
       </div>
+
+      {/* Owner employee info */}
+      {client.ownerEmployee && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
+            <User size={14} className="text-violet-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-slate-400 font-medium mb-1">Usuario OWNER en el sistema</p>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div>
+                <span className="text-xs text-slate-400">Usuario: </span>
+                <span className="text-sm font-mono text-slate-700">{client.ownerEmployee.username}</span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-400">Nombre: </span>
+                <span className="text-sm text-slate-700">{client.ownerEmployee.name}</span>
+              </div>
+              <div>
+                <span className="text-xs text-slate-400">Email: </span>
+                <span className="text-sm text-slate-700">{client.ownerEmployee.email || <span className="text-slate-400 italic">sin correo registrado</span>}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {client.notes && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
@@ -355,6 +434,53 @@ export function ClientDetail() {
           <p className="text-sm text-slate-600">
             ¿Estás seguro de que deseas eliminar esta licencia? Esta acción no se puede deshacer.
           </p>
+        </Modal>
+      )}
+
+      {/* Edit profile modal */}
+      {showEdit && (
+        <Modal
+          title="Editar perfil del negocio"
+          onClose={() => setShowEdit(false)}
+          onConfirm={handleEdit}
+          confirmLabel="Guardar cambios"
+          confirmDisabled={!editForm.businessName}
+          error={editError}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <FormField label="Nombre del negocio" required>
+              <input value={editForm.businessName ?? ''} onChange={ef('businessName')} placeholder="Ej. Heladería La Paloma" className={inputClass} />
+            </FormField>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Propietario (nombre)">
+                <input value={editForm.ownerName ?? ''} onChange={ef('ownerName')} placeholder="Nombre completo" className={inputClass} />
+              </FormField>
+              <FormField label="Correo de contacto">
+                <input type="email" value={editForm.email ?? ''} onChange={ef('email')} placeholder="correo@dominio.mx" className={inputClass} />
+              </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Teléfono">
+                <input value={editForm.phone ?? ''} onChange={ef('phone')} placeholder="+52 999 000 0000" className={inputClass} />
+              </FormField>
+              <FormField label="Ciudad">
+                <input value={editForm.city ?? ''} onChange={ef('city')} placeholder="Mérida" className={inputClass} />
+              </FormField>
+            </div>
+            <FormField label="Estado">
+              <input value={editForm.state ?? ''} onChange={ef('state')} placeholder="Yucatán" className={inputClass} />
+            </FormField>
+            <FormField label="Notas internas">
+              <textarea
+                value={editForm.notes ?? ''}
+                onChange={ef('notes')}
+                placeholder="Observaciones, acuerdos especiales, etc."
+                rows={3}
+                className={`${inputClass} resize-none`}
+              />
+            </FormField>
+          </div>
         </Modal>
       )}
     </div>
