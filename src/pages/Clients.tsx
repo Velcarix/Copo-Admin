@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ChevronRight, Building2, MapPin, Copy, Check, User, KeyRound, ArrowRight } from 'lucide-react'
+import { Search, Plus, ChevronRight, Building2, MapPin, Copy, Check, User, KeyRound } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency } from '../lib/utils'
