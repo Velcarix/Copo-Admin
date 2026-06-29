@@ -426,14 +426,32 @@ export function ClientDetail() {
       {/* Delete confirm */}
       {confirmDelete && (
         <Modal
-          title="Eliminar licencia"
+          title="Eliminar sucursal"
           onClose={() => setConfirmDelete(null)}
-          onConfirm={() => { deleteLicense(confirmDelete); setConfirmDelete(null) }}
-          confirmLabel="Sí, eliminar"
+          onConfirm={async () => { await deleteLicense(confirmDelete); setConfirmDelete(null) }}
+          confirmLabel="Sí, eliminar todo"
         >
-          <p className="text-sm text-slate-600">
-            ¿Estás seguro de que deseas eliminar esta licencia? Esta acción no se puede deshacer.
-          </p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
+              <div>
+                <p className="text-sm font-semibold text-red-700">Esta acción no se puede deshacer</p>
+                <p className="text-sm text-red-600 mt-1">
+                  Se eliminarán permanentemente <span className="font-semibold">todos los datos</span> de esta sucursal:
+                </p>
+              </div>
+            </div>
+            <ul className="text-sm text-slate-600 space-y-1.5 pl-4">
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Historial completo de ventas y órdenes</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Productos, modificadores e inventario</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Empleados y sus accesos</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />Turnos, mesas y configuración</li>
+              <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />La licencia y la sucursal en sí</li>
+            </ul>
+            <p className="text-xs text-slate-400 pt-1">
+              Si solo quieres desactivar el POS sin borrar los datos, usa "Suspender" en lugar de eliminar.
+            </p>
+          </div>
         </Modal>
       )}
 

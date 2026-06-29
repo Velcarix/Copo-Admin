@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ExternalLink, Download, Pencil } from 'lucide-react'
+import { Search, Plus, ExternalLink, Download, Pencil, RefreshCw, Check } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import type { LicenseUpdateData } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
@@ -52,7 +52,7 @@ function licenseToEditForm(l: License): EditForm {
 }
 
 export function Licenses() {
-  const { licenses, clients, addLicense, updateLicense } = useApp()
+  const { licenses, clients, addLicense, updateLicense, regenerateLicenseKey } = useApp()
   const navigate = useNavigate()
 
   const [filter, setFilter] = useState<FilterStatus>('all')
@@ -63,6 +63,8 @@ export function Licenses() {
   const [editTarget, setEditTarget] = useState<License | null>(null)
   const [editForm, setEditForm] = useState<EditForm | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false)
+  const [regenDone, setRegenDone] = useState<string | null>(null)
 
   const clientMap = useMemo(() => {
     const m: Record<string, string> = {}
@@ -119,6 +121,17 @@ export function Licenses() {
     setEditTarget(l)
     setEditForm(licenseToEditForm(l))
     setEditError(null)
+    setShowRegenConfirm(false)
+    setRegenDone(null)
+  }
+
+  async function handleRegenerate() {
+    if (!editTarget) return
+    const newKey = await regenerateLicenseKey(editTarget.id)
+    setRegenDone(newKey)
+    setShowRegenConfirm(false)
+    // actualizar el form para mostrar nueva clave
+    setEditTarget(prev => prev ? { ...prev, licenseKey: newKey } : prev)
   }
 
   async function handleEdit() {
@@ -342,18 +355,60 @@ export function Licenses() {
       {editTarget && editForm && (
         <Modal
           title="Editar licencia"
-          onClose={() => { setEditTarget(null); setEditForm(null) }}
+          onClose={() => { setEditTarget(null); setEditForm(null); setShowRegenConfirm(false); setRegenDone(null) }}
           onConfirm={handleEdit}
           confirmLabel="Guardar cambios"
           confirmDisabled={!editForm.branchName}
           error={editError}
         >
           <div className="space-y-4">
-            <div className="bg-slate-50 rounded-lg px-4 py-2.5">
-              <p className="text-xs text-slate-400">
-                Clave: <span className="font-mono text-slate-600">{editTarget.licenseKey}</span>
-              </p>
+            {/* Clave actual */}
+            <div className="bg-slate-50 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs text-slate-400 mb-0.5">Clave de licencia</p>
+                <p className="text-xs font-mono text-slate-600 truncate">{editTarget.licenseKey}</p>
+              </div>
+              {regenDone ? (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium shrink-0">
+                  <Check size={13} /> Clave regenerada
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowRegenConfirm(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-700 transition-colors shrink-0"
+                >
+                  <RefreshCw size={12} />
+                  Regenerar clave
+                </button>
+              )}
             </div>
+
+            {/* Confirmación de regenerar */}
+            {showRegenConfirm && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-2">
+                <p className="text-sm font-medium text-amber-800">¿Regenerar la clave de licencia?</p>
+                <p className="text-xs text-amber-700">
+                  Se generará una nueva clave. El POS dejará de funcionar hasta que descargues y apliques el nuevo archivo <span className="font-mono">.copo</span>.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors"
+                  >
+                    Sí, regenerar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegenConfirm(false)}
+                    className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             <FormField label="Nombre de la sucursal" required>
               <input value={editForm.branchName} onChange={ef('branchName')} className={inputClass} />

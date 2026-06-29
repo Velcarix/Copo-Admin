@@ -136,6 +136,7 @@ interface AppContextValue {
   updateLicense: (id: string, data: LicenseUpdateData) => Promise<void>
   updateLicenseStatus: (id: string, status: LicenseStatus) => Promise<void>
   deleteLicense: (id: string) => Promise<void>
+  regenerateLicenseKey: (id: string) => Promise<string>
   getClientLicenses: (clientId: string) => License[]
 }
 
@@ -231,8 +232,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function deleteLicense(id: string) {
     await adminApi.delete(`/api/admin/licenses/${id}`)
-    // Backend soft-deletes: status → EXPIRED
-    setLicenses(prev => prev.map(l => (l.id === id ? { ...l, status: 'expired' as LicenseStatus } : l)))
+    setLicenses(prev => prev.filter(l => l.id !== id))
+  }
+
+  async function regenerateLicenseKey(id: string) {
+    const res = await adminApi.post<{ data: BackendBranchLicense }>(`/api/admin/licenses/${id}/regenerate-key`, {})
+    setLicenses(prev => prev.map(l => (l.id === id ? mapLicense(res.data) : l)))
+    return res.data.licenseKey
   }
 
   function getClientLicenses(clientId: string) {
@@ -252,6 +258,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateLicense,
         updateLicenseStatus,
         deleteLicense,
+        regenerateLicenseKey,
         getClientLicenses,
       }}
     >
