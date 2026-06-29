@@ -1,42 +1,10 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ChevronRight, Building2, MapPin, Copy, Check, User, KeyRound } from 'lucide-react'
+import { Search, Plus, ChevronRight, Building2, MapPin } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency } from '../lib/utils'
 
-interface CreatedCredentials {
-  clientId: string
-  businessName: string
-  ownerName: string
-  email: string
-  username: string
-  tempPassword: string
-}
-
-function CopyField({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false)
-  function copy() {
-    navigator.clipboard.writeText(value)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-  return (
-    <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3">
-      <div className="min-w-0">
-        <p className="text-xs text-slate-400 font-medium mb-0.5">{label}</p>
-        <p className="text-sm font-mono text-slate-800 font-semibold">{value}</p>
-      </div>
-      <button
-        onClick={copy}
-        className="ml-3 w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
-        title="Copiar"
-      >
-        {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-      </button>
-    </div>
-  )
-}
 
 const EMPTY_FORM = { ownerName: '', businessName: '', email: '', phone: '', city: '', state: '' }
 
@@ -51,7 +19,6 @@ export function Clients() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [createError, setCreateError] = useState<string | null>(null)
-  const [credentials, setCredentials] = useState<CreatedCredentials | null>(null)
 
   const filtered = useMemo(
     () =>
@@ -76,15 +43,19 @@ export function Clients() {
     try {
       const owner = await addClient(form)
       setShowCreate(false)
-      setCredentials({
-        clientId: owner.id,
-        businessName: form.businessName,
-        ownerName: form.ownerName,
-        email: form.email,
-        username: owner.username,
-        tempPassword: owner.tempPassword,
-      })
       setForm({ ...EMPTY_FORM })
+      navigate(`/clients/${owner.id}`, {
+        state: {
+          openCreateBranch: true,
+          ownerCredentials: {
+            username: owner.username,
+            tempPassword: owner.tempPassword,
+            businessName: form.businessName,
+            ownerName: form.ownerName,
+            email: form.email,
+          },
+        },
+      })
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Error al crear el cliente')
     }
@@ -220,7 +191,7 @@ export function Clients() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Teléfono">
-                <input value={form.phone} onChange={f('phone')} placeholder="+52 999 000 0000" className={inputClass} />
+                <input value={form.phone} onChange={f('phone')} placeholder="+52 999 000 0000" maxLength={10} className={inputClass} />
               </FormField>
               <FormField label="Ciudad">
                 <input value={form.city} onChange={f('city')} placeholder="Mérida" className={inputClass} />
@@ -233,54 +204,6 @@ export function Clients() {
         </Modal>
       )}
 
-      {/* Credentials summary modal */}
-      {credentials && (
-        <Modal
-          title="Cliente creado"
-          onClose={() => setCredentials(null)}
-          onConfirm={() => {
-            const id = credentials.clientId
-            setCredentials(null)
-            navigate(`/clients/${id}`, { state: { openCreateBranch: true } })
-          }}
-          confirmLabel="Crear sucursal →"
-        >
-          <div className="space-y-5">
-            {/* Success indicator */}
-            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                <Check size={16} className="text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-800">{credentials.businessName}</p>
-                <p className="text-xs text-emerald-600">{credentials.ownerName} · {credentials.email}</p>
-              </div>
-            </div>
-
-            {/* Owner credentials */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-6 h-6 rounded-md bg-violet-100 flex items-center justify-center">
-                  <User size={12} className="text-violet-600" />
-                </div>
-                <p className="text-sm font-semibold text-slate-800">Acceso del propietario (OWNER)</p>
-              </div>
-              <div className="space-y-2">
-                <CopyField label="Usuario" value={credentials.username} />
-                <CopyField label="Contraseña temporal" value={credentials.tempPassword} />
-              </div>
-            </div>
-
-            {/* Warning */}
-            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <KeyRound size={14} className="text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-700">
-                Esta contraseña es temporal. Al ingresar al dashboard por primera vez, el cliente deberá cambiarla. Guarda estas credenciales en un lugar seguro — no se podrán recuperar después.
-              </p>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }

@@ -134,7 +134,7 @@ interface AppContextValue {
   addClient: (data: ClientCreateData) => Promise<{ id: string; username: string; name: string; tempPassword: string }>
   updateClient: (id: string, data: ClientUpdateData) => Promise<void>
   deleteClient: (id: string) => Promise<void>
-  addLicense: (data: LicenseCreateData) => Promise<void>
+  addLicense: (data: LicenseCreateData) => Promise<string>
   updateLicense: (id: string, data: LicenseUpdateData) => Promise<void>
   updateLicenseStatus: (id: string, status: LicenseStatus) => Promise<void>
   deleteLicense: (id: string) => Promise<void>
@@ -208,7 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClients(prev => prev.map(c => (c.id === id ? { ...mapClient(res.data), ownerEmployee: c.ownerEmployee } : c)))
   }
 
-  async function addLicense(data: LicenseCreateData) {
+  async function addLicense(data: LicenseCreateData): Promise<string> {
     const body = {
       businessId: data.clientId,
       branchName: data.branchName,
@@ -224,6 +224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }>('/api/admin/licenses', body)
     const merged: BackendBranchLicense = { ...res.data.license, branch: res.data.branch }
     setLicenses(prev => [mapLicense(merged), ...prev])
+    return res.data.license.licenseKey
   }
 
   async function updateLicense(id: string, data: LicenseUpdateData) {

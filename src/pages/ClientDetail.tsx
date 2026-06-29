@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -19,6 +19,7 @@ import {
   Download,
   Pencil,
   User,
+  KeyRound,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import type { ClientUpdateData } from '../store/AppContext'
@@ -45,11 +46,49 @@ function CopyButton({ text }: { text: string }) {
 
 const EMPTY_BRANCH_FORM = {
   branchName: '',
-  branchAddress: '',
+  street: '',
+  postalCode: '',
+  colonia: '',
+  city: '',
+  state: '',
   plan: 'basico' as Plan,
   status: 'active' as LicenseStatus,
   startedAt: new Date().toISOString().split('T')[0],
   expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+}
+
+interface OwnerCredentials {
+  username: string
+  tempPassword: string
+  businessName: string
+  ownerName: string
+  email: string
+}
+
+type LocationState = { openCreateBranch?: boolean; ownerCredentials?: OwnerCredentials } | null
+
+function CopyField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="flex items-center justify-between bg-slate-50 rounded-lg px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-xs text-slate-400 font-medium mb-0.5">{label}</p>
+        <p className="text-sm font-mono text-slate-800 font-semibold">{value}</p>
+      </div>
+      <button
+        onClick={copy}
+        className="ml-3 w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+        title="Copiar"
+      >
+        {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+      </button>
+    </div>
+  )
 }
 
 const EMPTY_EDIT_FORM: ClientUpdateData = {
@@ -71,14 +110,40 @@ export function ClientDetail() {
   const client = clients.find(c => c.id === id)
   const licenses = getClientLicenses(id ?? '')
 
-  const [showCreate, setShowCreate] = useState((location.state as { openCreateBranch?: boolean } | null)?.openCreateBranch ?? false)
+  const locationState = location.state as LocationState
+  const ownerCredentials = locationState?.ownerCredentials ?? null
+  const [showCreate, setShowCreate] = useState(locationState?.openCreateBranch ?? false)
   const [form, setForm] = useState({ ...EMPTY_BRANCH_FORM })
+  const [colonias, setColonias] = useState<string[]>([])
+  const [cpLoading, setCpLoading] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
+  const [summaryData, setSummaryData] = useState<{ username: string; tempPassword: string; licenseKey: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [showDeleteClient, setShowDeleteClient] = useState(false)
   const [deleteClientError, setDeleteClientError] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [editForm, setEditForm] = useState<ClientUpdateData>({ ...EMPTY_EDIT_FORM })
   const [editError, setEditError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (form.postalCode.length !== 5) {
+      setColonias([])
+      return
+    }
+    let cancelled = false
+    setCpLoading(true)
+    fetch(`https://api-sepomex.hckdrk.mx/query/info_cp/${form.postalCode}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled || data.error) return
+        const r = data.response
+        setForm(prev => ({ ...prev, city: r.municipio || r.ciudad || '', state: r.estado || '' }))
+        setColonias(Array.isArray(r.colonias) ? r.colonias : [])
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setCpLoading(false) })
+    return () => { cancelled = true }
+  }, [form.postalCode])
 
   function openEdit() {
     if (!client) return
@@ -145,12 +210,13 @@ export function ClientDetail() {
     }
   }
 
-  function handleCreateBranch() {
+  async function handleCreateBranch() {
     if (!form.branchName) return
-    addLicense({
+    const addressParts = [form.street, form.colonia, form.city, form.state, form.postalCode].filter(Boolean)
+    const licenseKey = await addLicense({
       clientId: id!,
       branchName: form.branchName,
-      branchAddress: form.branchAddress,
+      branchAddress: addressParts.join(', '),
       plan: form.plan,
       status: form.status,
       monthlyAmount: form.status === 'trial' ? 0 : PLAN_PRICES[form.plan],
@@ -159,6 +225,11 @@ export function ClientDetail() {
     })
     setShowCreate(false)
     setForm({ ...EMPTY_BRANCH_FORM })
+    setColonias([])
+    if (ownerCredentials) {
+      setSummaryData({ username: ownerCredentials.username, tempPassword: ownerCredentials.tempPassword, licenseKey })
+      setShowSummary(true)
+    }
   }
 
   async function handleGenerateFile(licenseId: string, branchName: string) {
@@ -409,8 +480,34 @@ export function ClientDetail() {
               <input value={form.branchName} onChange={f('branchName')} placeholder="Ej. Sucursal Centro" className={inputClass} />
             </FormField>
 
-            <FormField label="Dirección">
-              <input value={form.branchAddress} onChange={f('branchAddress')} placeholder="Calle, colonia, ciudad" className={inputClass} />
+            <FormField label="Calle">
+              <input value={form.street} onChange={f('street')} placeholder="Ej. Av. García Lavín 123" className={inputClass} />
+            </FormField>
+
+            <div className="grid grid-cols-3 gap-4">
+              <FormField label="Código postal">
+                <div className="relative">
+                  <input value={form.postalCode} onChange={f('postalCode')} placeholder="97000" maxLength={5} className={inputClass} />
+                  {cpLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">cargando…</span>}
+                </div>
+              </FormField>
+              <FormField label="Ciudad">
+                <input value={form.city} readOnly placeholder="Auto" className={inputClass + ' bg-slate-50 text-slate-600'} />
+              </FormField>
+              <FormField label="Estado">
+                <input value={form.state} readOnly placeholder="Auto" className={inputClass + ' bg-slate-50 text-slate-600'} />
+              </FormField>
+            </div>
+
+            <FormField label="Colonia">
+              {colonias.length > 0 ? (
+                <select value={form.colonia} onChange={f('colonia')} className={inputClass}>
+                  <option value="">Seleccionar colonia…</option>
+                  {colonias.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              ) : (
+                <input value={form.colonia} onChange={f('colonia')} placeholder={form.postalCode.length === 5 ? 'No encontrada — escribe manualmente' : 'Ingresa el código postal primero'} className={inputClass} />
+              )}
             </FormField>
 
             <div className="grid grid-cols-2 gap-4">
@@ -444,6 +541,58 @@ export function ClientDetail() {
               <span className="text-lg font-semibold text-blue-800 tabular-nums">
                 {form.status === 'trial' ? 'Gratis (prueba)' : formatCurrency(PLAN_PRICES[form.plan])}
               </span>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Onboarding summary modal */}
+      {showSummary && summaryData && (
+        <Modal
+          title="¡Todo listo!"
+          onClose={() => setShowSummary(false)}
+          onConfirm={() => setShowSummary(false)}
+          confirmLabel="Cerrar"
+        >
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <Check size={16} className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-emerald-800">{client.businessName}</p>
+                <p className="text-xs text-emerald-600">Cliente y sucursal creados correctamente</p>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-md bg-violet-100 flex items-center justify-center">
+                  <User size={12} className="text-violet-600" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800">Acceso del propietario (OWNER)</p>
+              </div>
+              <div className="space-y-2">
+                <CopyField label="Usuario" value={summaryData.username} />
+                <CopyField label="Contraseña temporal" value={summaryData.tempPassword} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center">
+                  <KeyRound size={12} className="text-blue-600" />
+                </div>
+                <p className="text-sm font-semibold text-slate-800">Licencia de la sucursal</p>
+              </div>
+              <CopyField label="Clave de licencia" value={summaryData.licenseKey} />
+            </div>
+
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <KeyRound size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700">
+                La contraseña es temporal. El cliente deberá cambiarla al ingresar por primera vez. Guarda estas credenciales — no se podrán recuperar después.
+              </p>
             </div>
           </div>
         </Modal>
