@@ -1,4 +1,8 @@
 import { useState, useMemo } from 'react'
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -517,7 +521,7 @@ export function ClientDetail() {
           onClose={() => setShowEdit(false)}
           onConfirm={handleEdit}
           confirmLabel="Guardar cambios"
-          confirmDisabled={!editForm.businessName}
+          confirmDisabled={!editForm.businessName || (!!editForm.email && !isValidEmail(editForm.email))}
           error={editError}
           size="lg"
         >
@@ -530,7 +534,16 @@ export function ClientDetail() {
                 <input value={editForm.ownerName ?? ''} onChange={ef('ownerName')} placeholder="Nombre completo" className={inputClass} />
               </FormField>
               <FormField label="Correo de contacto">
-                <input type="email" value={editForm.email ?? ''} onChange={ef('email')} placeholder="correo@dominio.mx" className={inputClass} />
+                <input
+                  type="email"
+                  value={editForm.email ?? ''}
+                  onChange={ef('email')}
+                  placeholder="correo@dominio.mx"
+                  className={`${inputClass} ${editForm.email && !isValidEmail(editForm.email) ? 'border-red-300 focus:ring-red-500' : ''}`}
+                />
+                {editForm.email && !isValidEmail(editForm.email) && (
+                  <p className="text-xs text-red-500 mt-1">Formato inválido — usa nombre@dominio.com</p>
+                )}
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">

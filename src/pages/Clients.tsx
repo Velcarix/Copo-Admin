@@ -39,6 +39,10 @@ function CopyField({ label, value }: { label: string; value: string }) {
 
 const EMPTY_FORM = { ownerName: '', businessName: '', email: '', phone: '', city: '', state: '' }
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
 export function Clients() {
   const { clients, licenses, addClient } = useApp()
   const navigate = useNavigate()
@@ -188,7 +192,7 @@ export function Clients() {
           onClose={() => { setShowCreate(false); setCreateError(null) }}
           onConfirm={handleCreate}
           confirmLabel="Crear cliente"
-          confirmDisabled={!form.ownerName || !form.businessName || !form.email}
+          confirmDisabled={!form.ownerName || !form.businessName || !form.email || (form.email.length > 0 && !isValidEmail(form.email))}
           error={createError}
         >
           <div className="space-y-4">
@@ -200,7 +204,16 @@ export function Clients() {
                 <input value={form.ownerName} onChange={f('ownerName')} placeholder="Nombre completo" className={inputClass} />
               </FormField>
               <FormField label="Correo electrónico" required>
-                <input type="email" value={form.email} onChange={f('email')} placeholder="correo@dominio.mx" className={inputClass} />
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={f('email')}
+                  placeholder="correo@dominio.mx"
+                  className={`${inputClass} ${form.email && !isValidEmail(form.email) ? 'border-red-300 focus:ring-red-500' : ''}`}
+                />
+                {form.email && !isValidEmail(form.email) && (
+                  <p className="text-xs text-red-500 mt-1">Formato inválido — usa nombre@dominio.com</p>
+                )}
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
