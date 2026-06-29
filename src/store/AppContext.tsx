@@ -37,6 +37,7 @@ interface BackendBranchLicense {
   expiresAt: string
   createdAt: string
   branch: BackendBranch
+  ownerUsername?: string
 }
 
 // ── Conversion maps ───────────────────────────────────────────────────────────
@@ -96,13 +97,14 @@ function mapLicense(l: BackendBranchLicense): License {
     startedAt: l.startedAt ? l.startedAt.split('T')[0] : '',
     expiresAt: l.expiresAt.split('T')[0],
     createdAt: l.createdAt,
+    ownerUsername: l.ownerUsername,
   }
 }
 
 // ── Context types ─────────────────────────────────────────────────────────────
 
 export type ClientCreateData = Omit<Client, 'id' | 'createdAt'>
-export type LicenseCreateData = Omit<License, 'id' | 'licenseKey' | 'createdAt'>
+export type LicenseCreateData = Omit<License, 'id' | 'licenseKey' | 'createdAt'> & { ownerPassword?: string }
 
 interface AppContextValue {
   clients: Client[]
@@ -112,6 +114,7 @@ interface AppContextValue {
   addClient: (data: ClientCreateData) => Promise<void>
   addLicense: (data: LicenseCreateData) => Promise<void>
   updateLicenseStatus: (id: string, status: LicenseStatus) => Promise<void>
+  updateLicenseCredentials: (id: string, ownerUsername: string, ownerPassword: string) => Promise<void>
   deleteLicense: (id: string) => Promise<void>
   getClientLicenses: (clientId: string) => License[]
 }
@@ -170,12 +173,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       monthlyAmountCents: Math.round(data.monthlyAmount * 100),
       startedAt: data.startedAt ? `${data.startedAt}T00:00:00.000Z` : undefined,
       expiresAt: `${data.expiresAt}T00:00:00.000Z`,
+      ownerUsername: data.ownerUsername || undefined,
+      ownerPassword: data.ownerPassword || undefined,
     }
     const res = await adminApi.post<{
       data: { branch: BackendBranch; license: Omit<BackendBranchLicense, 'branch'> }
     }>('/api/admin/licenses', body)
     const merged: BackendBranchLicense = { ...res.data.license, branch: res.data.branch }
     setLicenses(prev => [mapLicense(merged), ...prev])
+  }
+
+  async function updateLicenseCredentials(id: string, ownerUsername: string, ownerPassword: string) {
+    await adminApi.put(`/api/admin/licenses/${id}/credentials`, { ownerUsername, ownerPassword })
+    setLicenses(prev => prev.map(l => (l.id === id ? { ...l, ownerUsername } : l)))
   }
 
   async function updateLicenseStatus(id: string, status: LicenseStatus) {
@@ -203,6 +213,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addClient,
         addLicense,
         updateLicenseStatus,
+        updateLicenseCredentials,
         deleteLicense,
         getClientLicenses,
       }}

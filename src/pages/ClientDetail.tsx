@@ -13,6 +13,8 @@ import {
   Copy,
   Check,
   Download,
+  KeyRound,
+  User,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
@@ -43,12 +45,16 @@ const EMPTY_BRANCH_FORM = {
   status: 'active' as LicenseStatus,
   startedAt: new Date().toISOString().split('T')[0],
   expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  ownerUsername: '',
+  ownerPassword: '',
 }
+
+const EMPTY_CRED_FORM = { ownerUsername: '', ownerPassword: '' }
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { clients, getClientLicenses, addLicense, updateLicenseStatus, deleteLicense } = useApp()
+  const { clients, getClientLicenses, addLicense, updateLicenseStatus, updateLicenseCredentials, deleteLicense } = useApp()
 
   const client = clients.find(c => c.id === id)
   const licenses = getClientLicenses(id ?? '')
@@ -56,6 +62,8 @@ export function ClientDetail() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ ...EMPTY_BRANCH_FORM })
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [credFor, setCredFor] = useState<{ id: string; branchName: string } | null>(null)
+  const [credForm, setCredForm] = useState({ ...EMPTY_CRED_FORM })
 
   const mrr = useMemo(
     () => licenses.filter(l => l.status === 'active').reduce((s, l) => s + l.monthlyAmount, 0),
@@ -95,9 +103,18 @@ export function ClientDetail() {
       monthlyAmount: form.status === 'trial' ? 0 : PLAN_PRICES[form.plan],
       startedAt: form.startedAt,
       expiresAt: form.expiresAt,
+      ownerUsername: form.ownerUsername || undefined,
+      ownerPassword: form.ownerPassword || undefined,
     })
     setShowCreate(false)
     setForm({ ...EMPTY_BRANCH_FORM })
+  }
+
+  async function handleSaveCredentials() {
+    if (!credFor || !credForm.ownerPassword) return
+    await updateLicenseCredentials(credFor.id, credForm.ownerUsername, credForm.ownerPassword)
+    setCredFor(null)
+    setCredForm({ ...EMPTY_CRED_FORM })
   }
 
   async function handleGenerateFile(licenseId: string, branchName: string) {
@@ -213,7 +230,7 @@ export function ClientDetail() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
-                {['Sucursal', 'Clave de licencia', 'Plan', 'Estado', 'Vence', 'Mensual', ''].map(h => (
+                {['Sucursal', 'Clave de licencia', 'Plan', 'Estado', 'Vence', 'Mensual', 'Owner', ''].map(h => (
                   <th key={h} className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide">
                     {h}
                   </th>
@@ -247,7 +264,24 @@ export function ClientDetail() {
                       {l.monthlyAmount > 0 ? formatCurrency(l.monthlyAmount) : <span className="text-slate-400 font-normal">Prueba</span>}
                     </td>
                     <td className="px-6 py-4">
+                      {l.ownerUsername ? (
+                        <div className="flex items-center gap-1 text-xs text-slate-500">
+                          <User size={12} className="text-slate-400" />
+                          <span className="font-mono">{l.ownerUsername}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { setCredFor({ id: l.id, branchName: l.branchName }); setCredForm({ ownerUsername: l.ownerUsername ?? '', ownerPassword: '' }) }}
+                          title="Credenciales del owner"
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                        >
+                          <KeyRound size={15} />
+                        </button>
                         {l.status !== 'suspended' && l.status !== 'expired' && (
                           <button
                             onClick={() => handleGenerateFile(l.id, l.branchName)}
@@ -334,12 +368,59 @@ export function ClientDetail() {
               </FormField>
             </div>
 
+            <div className="border-t border-slate-100 pt-4">
+              <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wide">Credenciales del owner (opcional)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Usuario">
+                  <input value={form.ownerUsername} onChange={e => setForm(p => ({ ...p, ownerUsername: e.target.value }))} placeholder="usuario123" className={inputClass} />
+                </FormField>
+                <FormField label="Contraseña">
+                  <input type="password" value={form.ownerPassword} onChange={e => setForm(p => ({ ...p, ownerPassword: e.target.value }))} placeholder="••••••••" className={inputClass} />
+                </FormField>
+              </div>
+            </div>
+
             <div className="bg-blue-50 rounded-lg px-4 py-3 flex items-center justify-between">
               <span className="text-sm text-blue-700 font-medium">Monto mensual</span>
               <span className="text-lg font-semibold text-blue-800 tabular-nums">
                 {form.status === 'trial' ? 'Gratis (prueba)' : formatCurrency(PLAN_PRICES[form.plan])}
               </span>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Credentials modal */}
+      {credFor && (
+        <Modal
+          title={`Credenciales — ${credFor.branchName}`}
+          onClose={() => { setCredFor(null); setCredForm({ ...EMPTY_CRED_FORM }) }}
+          onConfirm={handleSaveCredentials}
+          confirmLabel="Guardar"
+          confirmDisabled={!credForm.ownerPassword}
+        >
+          <div className="space-y-4">
+            <div className="bg-slate-50 rounded-lg px-4 py-3">
+              <p className="text-xs text-slate-500">Ingresa el usuario y la nueva contraseña del owner para esta licencia.</p>
+            </div>
+            <FormField label="Usuario del owner">
+              <input
+                value={credForm.ownerUsername}
+                onChange={e => setCredForm(p => ({ ...p, ownerUsername: e.target.value }))}
+                placeholder="usuario123"
+                className={inputClass}
+              />
+            </FormField>
+            <FormField label="Nueva contraseña" required>
+              <input
+                type="password"
+                value={credForm.ownerPassword}
+                onChange={e => setCredForm(p => ({ ...p, ownerPassword: e.target.value }))}
+                placeholder="••••••••"
+                className={inputClass}
+                autoFocus
+              />
+            </FormField>
           </div>
         </Modal>
       )}

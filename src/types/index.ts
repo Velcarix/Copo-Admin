@@ -25,6 +25,7 @@ export interface License {
   startedAt: string
   expiresAt: string
   createdAt: string
+  ownerUsername?: string
 }
 
 export interface MRRPoint {
