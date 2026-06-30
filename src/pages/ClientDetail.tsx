@@ -116,6 +116,7 @@ export function ClientDetail() {
   const [form, setForm] = useState({ ...EMPTY_BRANCH_FORM })
   const [colonias, setColonias] = useState<string[]>([])
   const [cpLoading, setCpLoading] = useState(false)
+  const [cpError, setCpError] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
   const [summaryData, setSummaryData] = useState<{ username: string; tempPassword: string; licenseKey: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -128,17 +129,24 @@ export function ClientDetail() {
   useEffect(() => {
     if (form.postalCode.length !== 5) {
       setColonias([])
+      setCpError(null)
       return
     }
     let cancelled = false
     setCpLoading(true)
+    setCpError(null)
     adminApi.get<{ data: { city: string; state: string; colonias: string[] } }>(`/api/admin/postal-code/${form.postalCode}`)
       .then(res => {
         if (cancelled) return
         setForm(prev => ({ ...prev, city: res.data.city, state: res.data.state }))
         setColonias(res.data.colonias)
       })
-      .catch(() => {})
+      .catch(err => {
+        if (cancelled) return
+        console.error('Error al consultar código postal:', err)
+        setColonias([])
+        setCpError('No se pudo consultar el código postal')
+      })
       .finally(() => { if (!cancelled) setCpLoading(false) })
     return () => { cancelled = true }
   }, [form.postalCode])
@@ -224,6 +232,7 @@ export function ClientDetail() {
     setShowCreate(false)
     setForm({ ...EMPTY_BRANCH_FORM })
     setColonias([])
+    setCpError(null)
     if (ownerCredentials) {
       setSummaryData({ username: ownerCredentials.username, tempPassword: ownerCredentials.tempPassword, licenseKey })
       setShowSummary(true)
@@ -460,7 +469,7 @@ export function ClientDetail() {
       {showCreate && (
         <Modal
           title="Nueva sucursal"
-          onClose={() => { setShowCreate(false); setForm({ ...EMPTY_BRANCH_FORM }) }}
+          onClose={() => { setShowCreate(false); setForm({ ...EMPTY_BRANCH_FORM }); setCpError(null) }}
           onConfirm={handleCreateBranch}
           confirmLabel="Crear sucursal"
           confirmDisabled={!form.branchName}
@@ -488,6 +497,7 @@ export function ClientDetail() {
                   <input value={form.postalCode} onChange={f('postalCode')} placeholder="97000" maxLength={5} className={inputClass} />
                   {cpLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">cargando…</span>}
                 </div>
+                {cpError && <p className="text-xs text-red-500 mt-1">{cpError}</p>}
               </FormField>
               <FormField label="Ciudad">
                 <input value={form.city} readOnly placeholder="Auto" className={inputClass + ' bg-slate-50 text-slate-600'} />

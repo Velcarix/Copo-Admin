@@ -77,19 +77,26 @@ export function Licenses() {
   const [regenDone, setRegenDone] = useState<string | null>(null)
   const [editColonias, setEditColonias] = useState<string[]>([])
   const [editCpLoading, setEditCpLoading] = useState(false)
+  const [editCpError, setEditCpError] = useState<string | null>(null)
 
   useEffect(() => {
     const cp = editForm?.postalCode ?? ''
-    if (cp.length !== 5) { setEditColonias([]); return }
+    if (cp.length !== 5) { setEditColonias([]); setEditCpError(null); return }
     let cancelled = false
     setEditCpLoading(true)
+    setEditCpError(null)
     adminApi.get<{ data: { city: string; state: string; colonias: string[] } }>(`/api/admin/postal-code/${cp}`)
       .then(res => {
         if (cancelled) return
         setEditForm(prev => prev ? { ...prev, city: res.data.city, state: res.data.state } : prev)
         setEditColonias(res.data.colonias)
       })
-      .catch(() => {})
+      .catch(err => {
+        if (cancelled) return
+        console.error('Error al consultar código postal:', err)
+        setEditColonias([])
+        setEditCpError('No se pudo consultar el código postal')
+      })
       .finally(() => { if (!cancelled) setEditCpLoading(false) })
     return () => { cancelled = true }
   }, [editForm?.postalCode])
@@ -149,6 +156,7 @@ export function Licenses() {
     setEditTarget(l)
     setEditForm(licenseToEditForm(l))
     setEditError(null)
+    setEditCpError(null)
     setShowRegenConfirm(false)
     setRegenDone(null)
   }
@@ -389,7 +397,7 @@ export function Licenses() {
       {editTarget && editForm && (
         <Modal
           title="Editar licencia"
-          onClose={() => { setEditTarget(null); setEditForm(null); setShowRegenConfirm(false); setRegenDone(null) }}
+          onClose={() => { setEditTarget(null); setEditForm(null); setEditCpError(null); setShowRegenConfirm(false); setRegenDone(null) }}
           onConfirm={handleEdit}
           confirmLabel="Guardar cambios"
           confirmDisabled={!editForm.branchName}
@@ -462,6 +470,7 @@ export function Licenses() {
                   <input value={editForm.postalCode} onChange={ef('postalCode')} placeholder="97000" maxLength={5} className={inputClass} />
                   {editCpLoading && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">cargando…</span>}
                 </div>
+                {editCpError && <p className="text-xs text-red-500 mt-1">{editCpError}</p>}
               </FormField>
               <FormField label="Ciudad">
                 <input value={editForm.city} readOnly placeholder="Auto" className={inputClass + ' bg-slate-50 text-slate-600'} />
