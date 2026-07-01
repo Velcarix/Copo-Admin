@@ -20,6 +20,7 @@ import {
   Pencil,
   User,
   KeyRound,
+  Receipt,
 } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import type { ClientUpdateData } from '../store/AppContext'
@@ -28,6 +29,7 @@ import { Modal, FormField, inputClass } from '../components/Modal'
 import { formatDate, formatCurrency, isExpiringSoon, daysUntil } from '../lib/utils'
 import { downloadFile, adminApi } from '../lib/api'
 import { PLAN_PRICES } from '../data/mock'
+import { REGIMEN_FISCAL_OPTIONS, regimenFiscalLabel } from '../data/regimenFiscal'
 import type { License, LicenseStatus, Plan } from '../types'
 
 function CopyButton({ text }: { text: string }) {
@@ -99,6 +101,12 @@ const EMPTY_EDIT_FORM: ClientUpdateData = {
   city: '',
   state: '',
   notes: '',
+  rfc: '',
+  taxRegime: '',
+}
+
+function isValidRfc(rfc: string): boolean {
+  return /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc.trim().toUpperCase())
 }
 
 export function ClientDetail() {
@@ -161,6 +169,8 @@ export function ClientDetail() {
       city: client.city,
       state: client.state,
       notes: client.notes ?? '',
+      rfc: client.rfc ?? '',
+      taxRegime: client.taxRegime ?? '',
     })
     setEditError(null)
     setShowEdit(true)
@@ -185,7 +195,7 @@ export function ClientDetail() {
   }
 
   function ef(field: keyof ClientUpdateData) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setEditForm(prev => ({ ...prev, [field]: e.target.value }))
   }
 
@@ -354,6 +364,31 @@ export function ClientDetail() {
                 <span className="text-xs text-slate-400">Email: </span>
                 <span className="text-sm text-slate-700">{client.ownerEmployee.email || <span className="text-slate-400 italic">sin correo registrado</span>}</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(client.rfc || client.taxRegime) && (
+        <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
+            <Receipt size={14} className="text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-slate-400 font-medium mb-1">Situación fiscal</p>
+            <div className="flex items-center gap-4 flex-wrap">
+              {client.rfc && (
+                <div>
+                  <span className="text-xs text-slate-400">RFC: </span>
+                  <span className="text-sm font-mono text-slate-700">{client.rfc}</span>
+                </div>
+              )}
+              {client.taxRegime && (
+                <div>
+                  <span className="text-xs text-slate-400">Régimen: </span>
+                  <span className="text-sm text-slate-700">{regimenFiscalLabel(client.taxRegime)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -679,7 +714,11 @@ export function ClientDetail() {
           onClose={() => setShowEdit(false)}
           onConfirm={handleEdit}
           confirmLabel="Guardar cambios"
-          confirmDisabled={!editForm.businessName || (!!editForm.email && !isValidEmail(editForm.email))}
+          confirmDisabled={
+            !editForm.businessName ||
+            (!!editForm.email && !isValidEmail(editForm.email)) ||
+            (!!editForm.rfc && !isValidRfc(editForm.rfc))
+          }
           error={editError}
           size="lg"
         >
@@ -715,6 +754,28 @@ export function ClientDetail() {
             <FormField label="Estado">
               <input value={editForm.state ?? ''} onChange={ef('state')} placeholder="Yucatán" className={inputClass} />
             </FormField>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="RFC" hint="Persona física (13) o moral (12)">
+                <input
+                  value={editForm.rfc ?? ''}
+                  onChange={e => setEditForm(prev => ({ ...prev, rfc: e.target.value.toUpperCase() }))}
+                  placeholder="XAXX010101000"
+                  maxLength={13}
+                  className={`${inputClass} uppercase ${editForm.rfc && !isValidRfc(editForm.rfc) ? 'border-red-300 focus:ring-red-500' : ''}`}
+                />
+                {editForm.rfc && !isValidRfc(editForm.rfc) && (
+                  <p className="text-xs text-red-500 mt-1">RFC inválido</p>
+                )}
+              </FormField>
+              <FormField label="Régimen fiscal">
+                <select value={editForm.taxRegime ?? ''} onChange={ef('taxRegime')} className={inputClass}>
+                  <option value="">Sin especificar</option>
+                  {REGIMEN_FISCAL_OPTIONS.map(o => (
+                    <option key={o.code} value={o.code}>{o.label}</option>
+                  ))}
+                </select>
+              </FormField>
+            </div>
             <FormField label="Notas internas">
               <textarea
                 value={editForm.notes ?? ''}

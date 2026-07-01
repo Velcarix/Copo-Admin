@@ -23,6 +23,8 @@ interface BackendBusiness {
   city: string | null
   state: string | null
   notes: string | null
+  rfc: string | null
+  taxRegime: string | null
   createdAt: string
   employees?: BackendOwnerEmployee[]
   owner?: { username: string; name: string; tempPassword: string }
@@ -93,6 +95,8 @@ function mapClient(b: BackendBusiness): Client {
     city: b.city ?? '',
     state: b.state ?? '',
     notes: b.notes ?? undefined,
+    rfc: b.rfc ?? undefined,
+    taxRegime: b.taxRegime ?? undefined,
     createdAt: b.createdAt,
     ownerEmployee: ownerEmp ? mapOwnerEmployee(ownerEmp) : undefined,
   }
@@ -182,6 +186,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       city: data.city || undefined,
       state: data.state || undefined,
       notes: data.notes || undefined,
+      rfc: data.rfc || undefined,
+      taxRegime: data.taxRegime || undefined,
     }
     const res = await adminApi.post<{ data: BackendBusiness }>('/api/admin/clients', body)
     setClients(prev => [mapClient(res.data), ...prev])
@@ -205,6 +211,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.city !== undefined) body.city = data.city || null
     if (data.state !== undefined) body.state = data.state || null
     if (data.notes !== undefined) body.notes = data.notes || null
+    if (data.rfc !== undefined) body.rfc = data.rfc || null
+    if (data.taxRegime !== undefined) body.taxRegime = data.taxRegime || null
     const res = await adminApi.put<{ data: BackendBusiness }>(`/api/admin/clients/${id}`, body)
     setClients(prev => prev.map(c => (c.id === id ? { ...mapClient(res.data), ownerEmployee: c.ownerEmployee } : c)))
   }

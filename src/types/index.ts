@@ -18,6 +18,8 @@ export interface Client {
   state: string
   createdAt: string
   notes?: string
+  rfc?: string
+  taxRegime?: string
   ownerEmployee?: OwnerEmployee
 }
 
