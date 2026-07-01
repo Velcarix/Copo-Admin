@@ -5,6 +5,7 @@ import {
   KeyRound,
   UserCog,
   ChevronRight,
+  LogOut,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { getAdminUser } from '../lib/api'
@@ -26,7 +27,11 @@ const SUPER_ADMIN_NAV: NavItem[] = [
   { to: '/accounts', label: 'Cuentas', icon: UserCog },
 ]
 
-function Sidebar() {
+interface SidebarProps {
+  onLogout: () => void
+}
+
+function Sidebar({ onLogout }: SidebarProps) {
   const currentUser = getAdminUser()
   const navItems = currentUser?.role === 'SUPER_ADMIN'
     ? [...BASE_NAV, ...SUPER_ADMIN_NAV]
@@ -74,7 +79,7 @@ function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-4 border-t border-slate-800">
+      <div className="px-4 py-4 border-t border-slate-800 space-y-3">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
             <span className="text-slate-300 text-xs font-medium">{initials}</span>
@@ -86,6 +91,14 @@ function Sidebar() {
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+        >
+          <LogOut size={14} />
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   )
@@ -119,10 +132,14 @@ function Breadcrumb() {
   )
 }
 
-export function Layout() {
+interface LayoutProps {
+  onLogout: () => void
+}
+
+export function Layout({ onLogout }: LayoutProps) {
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <Sidebar />
+      <Sidebar onLogout={onLogout} />
       <main className="flex-1 overflow-auto">
         <div className="max-w-7xl mx-auto px-8 py-8">
           <Breadcrumb />
