@@ -6,6 +6,7 @@ import {
   UserCog,
   ChevronRight,
   LogOut,
+  LifeBuoy,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { getAdminUser } from '../lib/api'
@@ -21,6 +22,7 @@ const BASE_NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/clients', label: 'Clientes', icon: Users },
   { to: '/licenses', label: 'Licencias', icon: KeyRound },
+  { to: '/support', label: 'Soporte', icon: LifeBuoy },
 ]
 
 const SUPER_ADMIN_NAV: NavItem[] = [
@@ -112,6 +114,7 @@ function Breadcrumb() {
     clients: 'Clientes',
     licenses: 'Licencias',
     accounts: 'Cuentas',
+    support: 'Soporte',
   }
 
   if (parts.length === 0) return null

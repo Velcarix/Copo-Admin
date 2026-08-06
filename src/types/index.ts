@@ -46,3 +46,44 @@ export interface ClientsPoint {
   month: string
   nuevos: number
 }
+
+// ── Soporte ──────────────────────────────────────────────────────────────────
+
+export type SupportTicketStatus = 'OPEN' | 'PENDING' | 'CLOSED'
+
+export interface SupportAttachment {
+  id: string
+  filename: string
+  contentType: string
+}
+
+export interface SupportMessage {
+  id: string
+  ticketId: string
+  direction: 'INBOUND' | 'OUTBOUND'
+  fromEmail: string
+  toEmails: string[]
+  subject: string
+  bodyHtml: string | null
+  bodyText: string | null
+  authorAdminId: string | null
+  createdAt: string
+  attachments: SupportAttachment[]
+}
+
+export interface SupportTicket {
+  id: string
+  subject: string
+  status: SupportTicketStatus
+  requesterEmail: string
+  requesterName: string | null
+  businessId: string | null
+  assignedToId: string | null
+  lastMessageAt: string
+  createdAt: string
+  closedAt: string | null
+}
+
+export interface SupportTicketWithMessages extends SupportTicket {
+  messages: SupportMessage[]
+}

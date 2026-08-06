@@ -7,6 +7,8 @@ import { Clients } from './pages/Clients'
 import { ClientDetail } from './pages/ClientDetail'
 import { Licenses } from './pages/Licenses'
 import { Accounts } from './pages/Accounts'
+import { Support } from './pages/Support'
+import { SupportTicketDetail } from './pages/SupportTicketDetail'
 import { Login } from './pages/Login'
 import { logout } from './lib/api'
 
@@ -31,6 +33,8 @@ export default function App() {
             <Route path="clients" element={<Clients />} />
             <Route path="clients/:id" element={<ClientDetail />} />
             <Route path="licenses" element={<Licenses />} />
+            <Route path="support" element={<Support />} />
+            <Route path="support/:id" element={<SupportTicketDetail />} />
             <Route path="accounts" element={<Accounts />} />
           </Route>
         </Routes>
