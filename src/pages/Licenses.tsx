@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ExternalLink, Download, Pencil, RefreshCw, Check } from 'lucide-react'
+import { Search, Plus, ExternalLink, Download, Pencil, RefreshCw, Check, PauseCircle, PlayCircle } from 'lucide-react'
 import { useApp } from '../store/AppContext'
 import type { LicenseUpdateData } from '../store/AppContext'
 import { StatusBadge, PlanBadge } from '../components/Badge'
@@ -62,7 +62,7 @@ function licenseToEditForm(l: License): EditForm {
 }
 
 export function Licenses() {
-  const { licenses, clients, addLicense, updateLicense, regenerateLicenseKey } = useApp()
+  const { licenses, clients, addLicense, updateLicense, updateLicenseStatus, regenerateLicenseKey } = useApp()
   const navigate = useNavigate()
 
   const [filter, setFilter] = useState<FilterStatus>('all')
@@ -191,6 +191,13 @@ export function Licenses() {
     setEditColonias([])
   }
 
+  function toggleStatus(l: License) {
+    if (l.status === 'active') updateLicenseStatus(l.id, 'suspended')
+    else if (l.status === 'suspended') updateLicenseStatus(l.id, 'active')
+  }
+
+  const canToggle = (l: License) => l.status === 'active' || l.status === 'suspended'
+
   async function handleGenerateFile(licenseId: string, branchName: string) {
     try {
       const blob = await downloadFile(`/api/admin/licenses/${licenseId}/generate-file`)
@@ -303,6 +310,15 @@ export function Licenses() {
                           className="w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                         >
                           <Download size={14} />
+                        </button>
+                      )}
+                      {canToggle(l) && (
+                        <button
+                          onClick={() => toggleStatus(l)}
+                          title={l.status === 'active' ? 'Suspender' : 'Activar'}
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-slate-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                        >
+                          {l.status === 'active' ? <PauseCircle size={14} /> : <PlayCircle size={14} />}
                         </button>
                       )}
                       <button
