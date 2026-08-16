@@ -25,6 +25,7 @@ interface BackendBusiness {
   notes: string | null
   rfc: string | null
   taxRegime: string | null
+  billingNotice: string | null
   createdAt: string
   employees?: BackendOwnerEmployee[]
   owner?: { username: string; name: string; tempPassword: string }
@@ -97,6 +98,7 @@ function mapClient(b: BackendBusiness): Client {
     notes: b.notes ?? undefined,
     rfc: b.rfc ?? undefined,
     taxRegime: b.taxRegime ?? undefined,
+    billingNotice: b.billingNotice ?? undefined,
     createdAt: b.createdAt,
     ownerEmployee: ownerEmp ? mapOwnerEmployee(ownerEmp) : undefined,
   }
@@ -213,6 +215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.notes !== undefined) body.notes = data.notes || null
     if (data.rfc !== undefined) body.rfc = data.rfc || null
     if (data.taxRegime !== undefined) body.taxRegime = data.taxRegime || null
+    if (data.billingNotice !== undefined) body.billingNotice = data.billingNotice || null
     const res = await adminApi.put<{ data: BackendBusiness }>(`/api/admin/clients/${id}`, body)
     setClients(prev => prev.map(c => (c.id === id ? { ...mapClient(res.data), ownerEmployee: c.ownerEmployee } : c)))
   }

@@ -103,6 +103,7 @@ const EMPTY_EDIT_FORM: ClientUpdateData = {
   notes: '',
   rfc: '',
   taxRegime: '',
+  billingNotice: '',
 }
 
 function isValidRfc(rfc: string): boolean {
@@ -171,6 +172,7 @@ export function ClientDetail() {
       notes: client.notes ?? '',
       rfc: client.rfc ?? '',
       taxRegime: client.taxRegime ?? '',
+      billingNotice: client.billingNotice ?? '',
     })
     setEditError(null)
     setShowEdit(true)
@@ -369,7 +371,7 @@ export function ClientDetail() {
         </div>
       )}
 
-      {(client.rfc || client.taxRegime) && (
+      {(client.rfc || client.taxRegime || client.billingNotice) && (
         <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
             <Receipt size={14} className="text-blue-600" />
@@ -390,6 +392,12 @@ export function ClientDetail() {
                 </div>
               )}
             </div>
+            {client.billingNotice && (
+              <div className="mt-1.5">
+                <span className="text-xs text-slate-400">Datos de facturación: </span>
+                <span className="text-sm text-slate-700">{client.billingNotice}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -776,6 +784,16 @@ export function ClientDetail() {
                 </select>
               </FormField>
             </div>
+            <FormField label="Datos de facturación" hint="Texto que aparece en Configuración del Dashboard y en el pie del ticket">
+              <textarea
+                value={editForm.billingNotice ?? ''}
+                onChange={ef('billingNotice')}
+                placeholder="Ej. Factura se solicita al número 33 1121 2000"
+                rows={2}
+                maxLength={200}
+                className={`${inputClass} resize-none`}
+              />
+            </FormField>
             <FormField label="Notas internas">
               <textarea
                 value={editForm.notes ?? ''}

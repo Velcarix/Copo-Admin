@@ -20,6 +20,7 @@ export interface Client {
   notes?: string
   rfc?: string
   taxRegime?: string
+  billingNotice?: string
   ownerEmployee?: OwnerEmployee
 }
 
@@ -86,4 +87,49 @@ export interface SupportTicket {
 
 export interface SupportTicketWithMessages extends SupportTicket {
   messages: SupportMessage[]
+}
+
+export type LoyaltyLicenseStatus = 'active' | 'suspended' | 'expired'
+export type LoyaltyProgramType = 'visits' | 'points'
+
+export interface LoyaltyLicenseSummary {
+  status: LoyaltyLicenseStatus
+  plan: string
+  expiresAt: string | null
+}
+
+export interface LoyaltyMerchantSummary {
+  id: string
+  businessName: string
+  email: string
+  plan: string
+  createdAt: string
+  license: LoyaltyLicenseSummary | null
+  posLinked: boolean
+  programsCount: number
+  customersCount: number
+}
+
+export interface LoyaltyProgramSummary {
+  id: string
+  name: string
+  type: LoyaltyProgramType
+  isActive: boolean
+  createdAt: string
+  customersCount: number
+  transactionsCount: number
+}
+
+export interface LoyaltyMerchantDetail {
+  id: string
+  businessName: string
+  email: string
+  phone: string | null
+  vertical: string | null
+  plan: string
+  createdAt: string
+  license: (LoyaltyLicenseSummary & { lastValidatedAt: string | null }) | null
+  posLink: { posBusinessId: string; linkedAt: string } | null
+  locations: { id: string; name: string; isActive: boolean }[]
+  programs: LoyaltyProgramSummary[]
 }
