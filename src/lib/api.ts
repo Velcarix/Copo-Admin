@@ -38,7 +38,8 @@ export function logout(): void {
 }
 
 async function requestTo<T>(base: string, method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
+  const url = `${base}${path}`
+  const res = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -51,9 +52,15 @@ async function requestTo<T>(base: string, method: string, path: string, body?: u
     throw new UnauthorizedError()
   }
   if (!res.ok) {
-    const json = await res.json().catch(() => ({}))
-    const msg = (json as { error?: { message?: string } }).error?.message ?? `Error ${res.status}`
-    throw new Error(msg)
+    const text = await res.text()
+    let apiMessage: string | undefined
+    try {
+      apiMessage = (JSON.parse(text) as { error?: { message?: string } }).error?.message
+    } catch {
+      // La respuesta no es JSON (ej. una pagina 404 de la plataforma de hosting) — se muestra el texto crudo.
+    }
+    const detail = apiMessage ?? text.slice(0, 200) ?? ''
+    throw new Error(`${method} ${url} → ${res.status}${detail ? `: ${detail}` : ''}`)
   }
   return res.json() as Promise<T>
 }
