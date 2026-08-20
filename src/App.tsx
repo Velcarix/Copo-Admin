@@ -9,6 +9,8 @@ import { Licenses } from './pages/Licenses'
 import { Accounts } from './pages/Accounts'
 import { Support } from './pages/Support'
 import { SupportTicketDetail } from './pages/SupportTicketDetail'
+import { Loyalty } from './pages/Loyalty'
+import { LoyaltyMerchantDetail } from './pages/LoyaltyMerchantDetail'
 import { Login } from './pages/Login'
 import { logout } from './lib/api'
 
@@ -35,6 +37,8 @@ export default function App() {
             <Route path="licenses" element={<Licenses />} />
             <Route path="support" element={<Support />} />
             <Route path="support/:id" element={<SupportTicketDetail />} />
+            <Route path="loyalty" element={<Loyalty />} />
+            <Route path="loyalty/:id" element={<LoyaltyMerchantDetail />} />
             <Route path="accounts" element={<Accounts />} />
           </Route>
         </Routes>

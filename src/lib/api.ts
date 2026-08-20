@@ -1,4 +1,5 @@
 const BASE = import.meta.env.VITE_API_URL ?? ''
+const LOYALTY_BASE = import.meta.env.VITE_LOYALTY_API_URL ?? ''
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -36,8 +37,8 @@ export function logout(): void {
   clearSession()
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+async function requestTo<T>(base: string, method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${base}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -55,6 +56,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new Error(msg)
   }
   return res.json() as Promise<T>
+}
+
+function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return requestTo<T>(BASE, method, path, body)
 }
 
 export async function downloadFile(path: string): Promise<Blob> {
@@ -89,4 +94,14 @@ export const adminApi = {
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+}
+
+// Backend independiente de Copo Loyalty (VITE_LOYALTY_API_URL). Reusa el mismo
+// adminToken de sessionStorage — el JWT admin valida en ambos backends.
+export const loyaltyApi = {
+  get: <T>(path: string) => requestTo<T>(LOYALTY_BASE, 'GET', path),
+  post: <T>(path: string, body: unknown) => requestTo<T>(LOYALTY_BASE, 'POST', path, body),
+  put: <T>(path: string, body: unknown) => requestTo<T>(LOYALTY_BASE, 'PUT', path, body),
+  patch: <T>(path: string, body: unknown) => requestTo<T>(LOYALTY_BASE, 'PATCH', path, body),
+  delete: <T>(path: string) => requestTo<T>(LOYALTY_BASE, 'DELETE', path),
 }

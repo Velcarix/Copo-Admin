@@ -1,4 +1,4 @@
-import type { LicenseStatus, Plan, SupportTicketStatus } from '../types'
+import type { LicenseStatus, LoyaltyLicenseStatus, Plan, SupportTicketStatus } from '../types'
 
 const STATUS_STYLES: Record<LicenseStatus, string> = {
   active: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
@@ -60,6 +60,29 @@ export function TicketStatusBadge({ status }: { status: SupportTicketStatus }) {
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${TICKET_STATUS_STYLES[status]}`}>
       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
       {TICKET_STATUS_LABELS[status]}
+    </span>
+  )
+}
+
+const LOYALTY_LICENSE_STYLES: Record<LoyaltyLicenseStatus, string> = {
+  active: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+  suspended: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+  expired: 'bg-red-50 text-red-700 ring-1 ring-red-200',
+  trial: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+}
+
+const LOYALTY_LICENSE_LABELS: Record<LoyaltyLicenseStatus, string> = {
+  active: 'Activa',
+  suspended: 'Suspendida',
+  expired: 'Expirada',
+  trial: 'Prueba',
+}
+
+export function LoyaltyLicenseBadge({ status }: { status: LoyaltyLicenseStatus }) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${LOYALTY_LICENSE_STYLES[status]}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+      {LOYALTY_LICENSE_LABELS[status]}
     </span>
   )
 }
