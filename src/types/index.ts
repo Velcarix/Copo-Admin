@@ -89,7 +89,7 @@ export interface SupportTicketWithMessages extends SupportTicket {
   messages: SupportMessage[]
 }
 
-export type LoyaltyLicenseStatus = 'active' | 'suspended' | 'expired' | 'trial'
+export type LoyaltyLicenseStatus = 'active' | 'suspended' | 'expired'
 export type LoyaltyProgramType = 'visits' | 'points'
 
 export interface LoyaltyLicenseSummary {

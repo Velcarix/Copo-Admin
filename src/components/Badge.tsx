@@ -68,14 +68,12 @@ const LOYALTY_LICENSE_STYLES: Record<LoyaltyLicenseStatus, string> = {
   active: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
   suspended: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
   expired: 'bg-red-50 text-red-700 ring-1 ring-red-200',
-  trial: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
 }
 
 const LOYALTY_LICENSE_LABELS: Record<LoyaltyLicenseStatus, string> = {
   active: 'Activa',
   suspended: 'Suspendida',
   expired: 'Expirada',
-  trial: 'Prueba',
 }
 
 export function LoyaltyLicenseBadge({ status }: { status: LoyaltyLicenseStatus }) {

@@ -16,8 +16,7 @@ const EMPTY_CREATE_FORM = {
   email: '',
   phone: '',
   vertical: '',
-  plan: 'basico' as 'basico' | 'pro' | 'enterprise',
-  status: 'trial' as LoyaltyLicenseStatus,
+  plan: 'standard',
   expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
 }
 
@@ -125,9 +124,8 @@ export function Loyalty() {
         businessName: createForm.businessName,
         phone: createForm.phone || undefined,
         vertical: createForm.vertical || undefined,
-        plan: createForm.plan,
-        status: createForm.status,
-        expiresAt: new Date(createForm.expiresAt).toISOString(),
+        plan: createForm.plan || undefined,
+        expiresAt: createForm.expiresAt ? new Date(createForm.expiresAt).toISOString() : null,
       })
       setCreateResult({ licenseKey: res.data.license.licenseKey, temporaryPassword: res.data.temporaryPassword })
       setPage(1)
@@ -296,25 +294,13 @@ export function Loyalty() {
             </FormField>
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Plan">
-                <select value={createForm.plan} onChange={cf('plan')} className={inputClass}>
-                  <option value="basico">Básico</option>
-                  <option value="pro">Pro</option>
-                  <option value="enterprise">Enterprise</option>
-                </select>
+              <FormField label="Plan" hint="Ej. standard">
+                <input value={createForm.plan} onChange={cf('plan')} className={inputClass} />
               </FormField>
-              <FormField label="Estado">
-                <select value={createForm.status} onChange={cf('status')} className={inputClass}>
-                  <option value="trial">Prueba</option>
-                  <option value="active">Activo</option>
-                  <option value="suspended">Suspendido</option>
-                </select>
+              <FormField label="Vencimiento" hint="Opcional — sin vencimiento si se deja vacío">
+                <input type="date" value={createForm.expiresAt} onChange={cf('expiresAt')} className={inputClass} />
               </FormField>
             </div>
-
-            <FormField label="Vencimiento">
-              <input type="date" value={createForm.expiresAt} onChange={cf('expiresAt')} className={inputClass} />
-            </FormField>
 
             <div className="bg-blue-50 rounded-lg px-4 py-3">
               <p className="text-sm text-blue-700 font-medium">Clave de licencia y contraseña temporal</p>
